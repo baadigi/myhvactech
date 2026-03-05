@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+/* ============================================
+   MY HVAC TECH — Design Tokens
+   ============================================ */
+
+@theme {
+  /* Colors — Brand palette from HVAC Tech logo */
+  /* Primary: Deep navy-to-blue from logo */
+  --color-primary-50: #e8eef8;
+  --color-primary-100: #c5d4ee;
+  --color-primary-200: #9eb8e3;
+  --color-primary-300: #6d94d4;
+  --color-primary-400: #3a6db8;
+  --color-primary-500: #134a8a;
+  --color-primary-600: #103d74;
+  --color-primary-700: #0e3060;
+  --color-primary-800: #0c2550;
+  --color-primary-900: #0a1a3c;
+
+  /* Accent: Red-orange gradient from logo */
+  --color-accent-50: #fef2ee;
+  --color-accent-100: #fde0d5;
+  --color-accent-200: #f9b8a3;
+  --color-accent-300: #f48e6c;
+  --color-accent-400: #e85c30;
+  --color-accent-500: #c83518;
+  --color-accent-600: #a82d15;
+  --color-accent-700: #882412;
+  --color-accent-800: #6e1d0f;
+  --color-accent-900: #5a180d;
+
+  /* Bright blue from logo (cyan highlights) */
+  --color-sky-400: #0090d0;
+  --color-sky-500: #0080c0;
+  --color-sky-600: #0070b0;
+
+  --color-neutral-50: #f8fafc;
+  --color-neutral-100: #f1f5f9;
+  --color-neutral-200: #e2e8f0;
+  --color-neutral-300: #cbd5e1;
+  --color-neutral-400: #94a3b8;
+  --color-neutral-500: #64748b;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1e293b;
+  --color-neutral-900: #0f172a;
+  --color-neutral-950: #020617;
+
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-error: #dc2626;
+
+  /* Typography */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Spacing — 4px grid */
+  --spacing-0: 0px;
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+  --spacing-20: 80px;
+  --spacing-24: 96px;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+/* Base Styles */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-neutral-900);
+  background-color: var(--color-neutral-50);
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
