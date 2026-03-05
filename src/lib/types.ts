@@ -59,6 +59,14 @@ export interface Contractor {
   metro_area: string | null
   slot_tier: 'standard' | 'preferred' | 'exclusive' | null
 
+  // ─── Google Business Profile ──────────────────────────────
+  google_place_id?: string | null
+  google_rating?: number | null
+  google_review_count?: number
+  google_reviews?: GoogleReview[]
+  google_business_url?: string | null
+  google_last_synced_at?: string | null
+
   // ─── Relations ─────────────────────────────────────────────
   services?: Service[]
   service_areas?: ServiceArea[]
@@ -109,6 +117,15 @@ export interface Review {
   status: 'pending' | 'approved' | 'flagged' | 'removed'
   project_type: string | null
   building_type: string | null
+}
+
+export interface GoogleReview {
+  author_name: string
+  rating: number
+  text: string
+  time: number  // Unix timestamp
+  relative_time_description: string
+  profile_photo_url: string | null
 }
 
 export interface ContractorPhoto {

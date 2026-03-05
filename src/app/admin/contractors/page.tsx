@@ -34,6 +34,10 @@ interface ContractorRow {
   created_at: string
   slot_tier: string | null
   metro_area: string | null
+  google_place_id: string | null
+  google_rating: number | null
+  google_review_count: number
+  google_last_synced_at: string | null
 }
 
 type SortField = 'company_name' | 'avg_rating' | 'review_count' | 'created_at' | 'profile_views'
@@ -51,6 +55,9 @@ export default function AdminContractorsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
+  const [syncingId, setSyncingId] = useState<string | null>(null)
+  const [syncAllLoading, setSyncAllLoading] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
 
   const limit = 50
 
@@ -195,6 +202,48 @@ export default function AdminContractorsPage() {
     }
   }
 
+  const syncSingle = async (id: string) => {
+    setSyncingId(id)
+    setSyncMessage(null)
+    try {
+      const res = await fetch('/api/admin/google-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contractor_id: id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setSyncMessage(data.error || 'Sync failed')
+        return
+      }
+      setSyncMessage(`Synced: ${data.data?.rating ?? '\u2014'}\u2605 (${data.data?.review_count ?? 0} reviews)`)
+      fetchContractors()
+    } catch {
+      setSyncMessage('Sync failed \u2014 check API key')
+    } finally {
+      setSyncingId(null)
+    }
+  }
+
+  const syncAll = async () => {
+    setSyncAllLoading(true)
+    setSyncMessage(null)
+    try {
+      const res = await fetch('/api/admin/google-sync', { method: 'PATCH' })
+      const data = await res.json()
+      if (!res.ok) {
+        setSyncMessage(data.error || 'Batch sync failed')
+        return
+      }
+      setSyncMessage(`Batch sync: ${data.synced}/${data.total} contractors synced`)
+      fetchContractors()
+    } catch {
+      setSyncMessage('Batch sync failed \u2014 check API key')
+    } finally {
+      setSyncAllLoading(false)
+    }
+  }
+
   const totalPages = Math.ceil(total / limit)
 
   return (
@@ -205,16 +254,42 @@ export default function AdminContractorsPage() {
           <h2 className="text-xl font-semibold text-neutral-900">Contractors</h2>
           <p className="text-sm text-neutral-500 mt-0.5">{total.toLocaleString()} total</p>
         </div>
-        <Link href="/admin/contractors/add">
-          <Button size="sm">
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={syncAll}
+            loading={syncAllLoading}
+            disabled={syncAllLoading}
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <line x1="12" x2="12" y1="5" y2="19"/>
-              <line x1="5" x2="19" y1="12" y2="12"/>
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
             </svg>
-            Add Contractor
+            Sync Google Reviews
           </Button>
-        </Link>
+          <Link href="/admin/contractors/add">
+            <Button size="sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="12" x2="12" y1="5" y2="19"/>
+                <line x1="5" x2="19" y1="12" y2="12"/>
+              </svg>
+              Add Contractor
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {/* Sync message */}
+      {syncMessage && (
+        <div className="mb-4 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700 flex items-center justify-between">
+          <span>{syncMessage}</span>
+          <button onClick={() => setSyncMessage(null)} className="text-blue-400 hover:text-blue-600 ml-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
@@ -331,6 +406,7 @@ export default function AdminContractorsPage() {
                     Reviews <SortIcon field="review_count" />
                   </button>
                 </th>
+                <th className="px-4 py-3 text-left font-medium text-neutral-600">Google</th>
                 <th className="px-4 py-3 text-left font-medium text-neutral-600">Leads</th>
                 <th className="px-4 py-3 text-left">
                   <button
@@ -354,6 +430,7 @@ export default function AdminContractorsPage() {
                     <td className="px-4 py-3"><div className="h-4 bg-neutral-100 rounded w-20" /></td>
                     <td className="px-4 py-3"><div className="h-4 bg-neutral-100 rounded w-12" /></td>
                     <td className="px-4 py-3"><div className="h-4 bg-neutral-100 rounded w-10" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-neutral-100 rounded w-16" /></td>
                     <td className="px-4 py-3"><div className="h-4 bg-neutral-100 rounded w-10" /></td>
                     <td className="px-4 py-3"><div className="h-4 bg-neutral-100 rounded w-20" /></td>
                     <td className="px-4 py-3"><div className="h-4 bg-neutral-100 rounded w-24 ml-auto" /></td>
@@ -361,7 +438,7 @@ export default function AdminContractorsPage() {
                 ))
               ) : contractors.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-sm text-neutral-400">
+                  <td colSpan={11} className="px-4 py-12 text-center text-sm text-neutral-400">
                     No contractors found
                   </td>
                 </tr>
@@ -439,6 +516,35 @@ export default function AdminContractorsPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-neutral-500">{c.review_count}</td>
+                      <td className="px-4 py-3">
+                        {c.google_place_id ? (
+                          <div className="flex items-center gap-1">
+                            {c.google_rating ? (
+                              <span className="flex items-center gap-0.5 text-xs">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-yellow-400" aria-hidden="true">
+                                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                </svg>
+                                <span className="font-medium text-neutral-700">{c.google_rating}</span>
+                                <span className="text-neutral-400">({c.google_review_count})</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-neutral-400">ID set</span>
+                            )}
+                            <button
+                              onClick={() => syncSingle(c.id)}
+                              disabled={syncingId === c.id}
+                              title="Sync Google reviews"
+                              className="p-1 rounded text-neutral-300 hover:text-blue-500 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={syncingId === c.id ? 'animate-spin' : ''} aria-hidden="true">
+                                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-neutral-300 text-xs">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-neutral-500">{c.leads_count}</td>
                       <td className="px-4 py-3 text-neutral-400 whitespace-nowrap text-xs">
                         {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}

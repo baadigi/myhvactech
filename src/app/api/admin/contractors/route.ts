@@ -93,7 +93,11 @@ export async function GET(request: NextRequest) {
         phone,
         slot_tier,
         metro_area,
-        owner_id
+        owner_id,
+        google_place_id,
+        google_rating,
+        google_review_count,
+        google_last_synced_at
       `, { count: 'exact' })
 
     // Filters
@@ -251,6 +255,9 @@ export async function POST(request: NextRequest) {
       avg_quote_turnaround_hours: toFloat(body.avg_quote_turnaround_hours),
       sla_summary: (body.sla_summary as string)?.trim() || null,
 
+      // Google Business Profile
+      google_place_id: (body.google_place_id as string)?.trim() || null,
+
       // Defaults
       avg_rating: 0,
       review_count: 0,
@@ -313,6 +320,7 @@ export async function PATCH(request: NextRequest) {
       'offers_service_agreements', 'service_agreement_types', 'dispatch_crm',
       'uses_gps_tracking', 'avg_quote_turnaround_hours', 'sla_summary',
       'years_commercial_experience',
+      'google_place_id',
     ]
 
     const updates: Record<string, unknown> = {}

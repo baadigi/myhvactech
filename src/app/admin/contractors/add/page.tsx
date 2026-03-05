@@ -163,6 +163,7 @@ interface FormData {
   subscription_tier: string
   slot_tier: string
   metro_area: string
+  google_place_id: string
 
   // Descriptions
   description: string
@@ -211,6 +212,7 @@ const initialForm: FormData = {
   subscription_tier: 'free',
   slot_tier: '',
   metro_area: '',
+  google_place_id: '',
   description: '',
   short_description: '',
   system_types: [],
@@ -441,6 +443,14 @@ export default function AdminAddContractorPage() {
               value={form.website}
               onChange={e => set('website', e.target.value)}
               placeholder="https://company.com"
+            />
+            <Input
+              id="google_place_id"
+              label="Google Place ID"
+              type="text"
+              value={form.google_place_id}
+              onChange={e => set('google_place_id', e.target.value)}
+              placeholder="ChIJN1t_tDeuEmsR..."
             />
             <Input
               id="license_number"
