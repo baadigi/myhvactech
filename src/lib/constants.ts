@@ -1,5 +1,5 @@
 export const SITE_NAME = 'My HVAC Tech'
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.myhvactech.com'
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://myhvac.tech'
 export const SITE_DESCRIPTION = 'The commercial HVAC marketplace for property and facility managers. Find vetted contractors by building type, system, and service — not homeowners, not residential.'
 
 export const SITE_TAGLINE = 'Commercial HVAC. Vetted Contractors. Real Results.'
