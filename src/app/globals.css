@@ -5,28 +5,35 @@
    ============================================ */
 
 @theme {
-  /* Colors — Professional blue/teal palette for HVAC industry */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #2563eb;
-  --color-primary-600: #1d4ed8;
-  --color-primary-700: #1e40af;
-  --color-primary-800: #1e3a8a;
-  --color-primary-900: #172554;
+  /* Colors — Brand palette from HVAC Tech logo */
+  /* Primary: Deep navy-to-blue from logo */
+  --color-primary-50: #e8eef8;
+  --color-primary-100: #c5d4ee;
+  --color-primary-200: #9eb8e3;
+  --color-primary-300: #6d94d4;
+  --color-primary-400: #3a6db8;
+  --color-primary-500: #134a8a;
+  --color-primary-600: #103d74;
+  --color-primary-700: #0e3060;
+  --color-primary-800: #0c2550;
+  --color-primary-900: #0a1a3c;
 
-  --color-accent-50: #f0fdfa;
-  --color-accent-100: #ccfbf1;
-  --color-accent-200: #99f6e4;
-  --color-accent-300: #5eead4;
-  --color-accent-400: #2dd4bf;
-  --color-accent-500: #14b8a6;
-  --color-accent-600: #0d9488;
-  --color-accent-700: #0f766e;
-  --color-accent-800: #115e59;
-  --color-accent-900: #134e4a;
+  /* Accent: Red-orange gradient from logo */
+  --color-accent-50: #fef2ee;
+  --color-accent-100: #fde0d5;
+  --color-accent-200: #f9b8a3;
+  --color-accent-300: #f48e6c;
+  --color-accent-400: #e85c30;
+  --color-accent-500: #c83518;
+  --color-accent-600: #a82d15;
+  --color-accent-700: #882412;
+  --color-accent-800: #6e1d0f;
+  --color-accent-900: #5a180d;
+
+  /* Bright blue from logo (cyan highlights) */
+  --color-sky-400: #0090d0;
+  --color-sky-500: #0080c0;
+  --color-sky-600: #0070b0;
 
   --color-neutral-50: #f8fafc;
   --color-neutral-100: #f1f5f9;

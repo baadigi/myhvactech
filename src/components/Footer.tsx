@@ -32,7 +32,7 @@ export default function Footer() {
 
           {/* Column 1: Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <Logo className="[&_span]:text-white" showText={true} />
+            <Logo className="brightness-0 invert" showText={true} />
             <p className="mt-4 text-sm text-neutral-400 leading-relaxed max-w-xs">
               The trusted directory for commercial HVAC contractors. Find, compare, and hire
               the best heating and cooling professionals near you.
