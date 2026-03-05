@@ -65,6 +65,7 @@ export default function BlogEditorPage() {
   const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write')
   const [seoOpen, setSeoOpen] = useState(false)
   const [savedMessage, setSavedMessage] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   // Auto-generate slug from title
   useEffect(() => {
@@ -401,26 +402,86 @@ export default function BlogEditorPage() {
 
           {/* Cover Image */}
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-4">
-            <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">Cover Image URL</label>
-            <input
-              type="url"
-              value={coverImageUrl}
-              onChange={(e) => setCoverImageUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 bg-white placeholder:text-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-            {coverImageUrl && (
-              <div className="mt-2 rounded-lg overflow-hidden border border-neutral-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={coverImageUrl}
-                  alt="Cover preview"
-                  className="w-full h-32 object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none'
+            <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2">Cover Image</label>
+            {coverImageUrl ? (
+              <div className="relative">
+                <div className="rounded-lg overflow-hidden border border-neutral-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={coverImageUrl}
+                    alt="Cover preview"
+                    className="w-full h-32 object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none'
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={() => setCoverImageUrl('')}
+                  className="absolute top-1 right-1 bg-white rounded-full p-1 shadow-md hover:bg-red-50 transition-colors"
+                  title="Remove image"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="18" x2="6" y1="6" y2="18"/>
+                    <line x1="6" x2="18" y1="6" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                uploading ? 'border-primary-300 bg-primary-50' : 'border-neutral-200 hover:border-primary-400 hover:bg-primary-50/50'
+              }`}>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    setUploading(true)
+                    try {
+                      const formData = new FormData()
+                      formData.append('file', file)
+                      const res = await fetch('/api/admin/upload', {
+                        method: 'POST',
+                        body: formData,
+                      })
+                      if (!res.ok) {
+                        const err = await res.json()
+                        throw new Error(err.error || 'Upload failed')
+                      }
+                      const data = await res.json()
+                      if (data.url) {
+                        setCoverImageUrl(data.url)
+                      }
+                    } catch (err) {
+                      alert(err instanceof Error ? err.message : 'Upload failed')
+                    } finally {
+                      setUploading(false)
+                      e.target.value = ''
+                    }
                   }}
                 />
-              </div>
+                {uploading ? (
+                  <>
+                    <svg className="animate-spin h-6 w-6 text-primary-500 mb-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    <span className="text-xs text-primary-600 font-medium">Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-neutral-400 mb-1" aria-hidden="true">
+                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                      <circle cx="9" cy="9" r="2"/>
+                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                    </svg>
+                    <span className="text-xs text-neutral-500">Click to upload image</span>
+                    <span className="text-[10px] text-neutral-400 mt-0.5">JPEG, PNG, WebP, GIF - max 5MB</span>
+                  </>
+                )}
+              </label>
             )}
           </div>
 
