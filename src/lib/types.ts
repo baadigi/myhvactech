@@ -226,6 +226,31 @@ export interface QuoteResponse {
   responded_at: string | null
 }
 
+export interface ClaimRequest {
+  id: string
+  created_at: string
+  updated_at: string
+  contractor_id: string
+  user_id: string
+  contact_name: string
+  contact_email: string
+  contact_phone: string | null
+  job_title: string | null
+  message: string | null
+  status: 'pending' | 'approved' | 'denied'
+  admin_notes: string | null
+  reviewed_at: string | null
+  reviewed_by: string | null
+  // Joined fields
+  contractor?: {
+    company_name: string
+    slug: string
+    city: string
+    state: string
+    is_claimed: boolean
+  }
+}
+
 export interface SearchParams {
   q?: string
   city?: string

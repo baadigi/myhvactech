@@ -1,13 +1,15 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const nextUrl = searchParams.get('next') || '/dashboard'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -30,7 +32,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    router.push(nextUrl)
     router.refresh()
   }
 
@@ -105,10 +107,27 @@ export default function LoginPage() {
 
       <p className="mt-6 text-center text-sm text-neutral-500">
         Don&apos;t have an account?{' '}
-        <Link href="/signup" className="font-medium text-primary-500 hover:text-primary-600 transition-colors">
+        <Link href={`/signup${nextUrl !== '/dashboard' ? `?next=${encodeURIComponent(nextUrl)}` : ''}`} className="font-medium text-primary-500 hover:text-primary-600 transition-colors">
           Sign up
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full mx-auto animate-pulse">
+        <div className="h-6 bg-neutral-100 rounded w-48 mx-auto mb-8" />
+        <div className="space-y-4">
+          <div className="h-9 bg-neutral-100 rounded" />
+          <div className="h-9 bg-neutral-100 rounded" />
+          <div className="h-10 bg-neutral-100 rounded" />
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

@@ -22,6 +22,9 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  verification: {
+    google: '7c7YjINgq_4FCFbwseYQAsbgpMp_VBNCL5PfqBu0pYg',
+  },
   title: {
     default: `${SITE_NAME} — Find Commercial HVAC Contractors`,
     template: `%s | ${SITE_NAME}`,

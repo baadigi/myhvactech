@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 
-export default function SignupPage() {
+function SignupForm() {
+  const searchParams = useSearchParams()
+  const nextUrl = searchParams.get('next') || ''
   const [companyName, setCompanyName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -43,7 +46,7 @@ export default function SignupPage() {
         data: {
           company_name: companyName.trim(),
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback${nextUrl ? `?next=${encodeURIComponent(nextUrl)}` : ''}`,
       },
     })
 
@@ -79,7 +82,7 @@ export default function SignupPage() {
         </p>
         <p className="mt-6 text-sm text-neutral-500">
           Already confirmed?{' '}
-          <Link href="/login" className="font-medium text-primary-500 hover:text-primary-600 transition-colors">
+          <Link href={`/login${nextUrl ? `?next=${encodeURIComponent(nextUrl)}` : ''}`} className="font-medium text-primary-500 hover:text-primary-600 transition-colors">
             Sign in
           </Link>
         </p>
@@ -182,10 +185,29 @@ export default function SignupPage() {
 
       <p className="mt-6 text-center text-sm text-neutral-500">
         Already have an account?{' '}
-        <Link href="/login" className="font-medium text-primary-500 hover:text-primary-600 transition-colors">
+        <Link href={`/login${nextUrl ? `?next=${encodeURIComponent(nextUrl)}` : ''}`} className="font-medium text-primary-500 hover:text-primary-600 transition-colors">
           Log in
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={
+      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full mx-auto animate-pulse">
+        <div className="h-6 bg-neutral-100 rounded w-48 mx-auto mb-8" />
+        <div className="space-y-4">
+          <div className="h-9 bg-neutral-100 rounded" />
+          <div className="h-9 bg-neutral-100 rounded" />
+          <div className="h-9 bg-neutral-100 rounded" />
+          <div className="h-9 bg-neutral-100 rounded" />
+          <div className="h-10 bg-neutral-100 rounded" />
+        </div>
+      </div>
+    }>
+      <SignupForm />
+    </Suspense>
   )
 }

@@ -828,6 +828,30 @@ export default async function ContractorProfilePage({ params }: Props) {
                   )}
                 </div>
 
+                {/* Claim This Listing CTA (only for unclaimed) */}
+                {!contractor.is_claimed && (
+                  <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                        <ShieldCheck size={16} className="text-amber-700" aria-hidden="true" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-amber-900">Is this your business?</p>
+                        <p className="text-xs text-amber-700 mt-0.5 mb-3">
+                          Claim this listing to manage your profile, respond to reviews, and receive leads.
+                        </p>
+                        <Link
+                          href={`/for-contractors/claim/${contractor.slug}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition-colors"
+                        >
+                          <ShieldCheck size={12} aria-hidden="true" />
+                          Claim This Listing
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Google Reviews */}
                 {contractor.google_reviews && contractor.google_reviews.length > 0 && (
                   <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">

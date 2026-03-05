@@ -255,8 +255,8 @@ export async function POST(request: NextRequest) {
       avg_quote_turnaround_hours: toFloat(body.avg_quote_turnaround_hours),
       sla_summary: (body.sla_summary as string)?.trim() || null,
 
-      // Google Business Profile
-      google_place_id: (body.google_place_id as string)?.trim() || null,
+      // Google Business Profile — only include if value is present
+      ...(body.google_place_id ? { google_place_id: (body.google_place_id as string)?.trim() } : {}),
 
       // Defaults
       avg_rating: 0,
@@ -321,6 +321,7 @@ export async function PATCH(request: NextRequest) {
       'uses_gps_tracking', 'avg_quote_turnaround_hours', 'sla_summary',
       'years_commercial_experience',
       'google_place_id',
+      'owner_id',
     ]
 
     const updates: Record<string, unknown> = {}
