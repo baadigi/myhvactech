@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 
@@ -66,6 +66,8 @@ export default function BlogEditorPage() {
   const [seoOpen, setSeoOpen] = useState(false)
   const [savedMessage, setSavedMessage] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [insertingImage, setInsertingImage] = useState(false)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-generate slug from title
   useEffect(() => {
@@ -276,7 +278,7 @@ export default function BlogEditorPage() {
 
           {/* Body Editor Tabs */}
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-            <div className="flex border-b border-neutral-200">
+            <div className="flex items-center border-b border-neutral-200">
               <button
                 onClick={() => setActiveTab('write')}
                 className={[
@@ -299,10 +301,85 @@ export default function BlogEditorPage() {
               >
                 Preview
               </button>
+
+              {/* Insert Image button */}
+              <div className="ml-auto pr-3">
+                <label
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg cursor-pointer transition-colors ${
+                    insertingImage
+                      ? 'bg-primary-50 text-primary-600'
+                      : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      setInsertingImage(true)
+                      try {
+                        const formData = new FormData()
+                        formData.append('file', file)
+                        const res = await fetch('/api/admin/upload', {
+                          method: 'POST',
+                          body: formData,
+                        })
+                        if (!res.ok) {
+                          const err = await res.json()
+                          throw new Error(err.error || 'Upload failed')
+                        }
+                        const data = await res.json()
+                        if (data.url) {
+                          const imgTag = `\n<img src="${data.url}" alt="" style="width:100%;border-radius:8px;margin:1rem 0;" />\n`
+                          const textarea = bodyRef.current
+                          if (textarea) {
+                            const start = textarea.selectionStart
+                            const end = textarea.selectionEnd
+                            const newBody = body.substring(0, start) + imgTag + body.substring(end)
+                            setBody(newBody)
+                            setTimeout(() => {
+                              textarea.selectionStart = textarea.selectionEnd = start + imgTag.length
+                              textarea.focus()
+                            }, 0)
+                          } else {
+                            setBody((prev) => prev + imgTag)
+                          }
+                        }
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : 'Upload failed')
+                      } finally {
+                        setInsertingImage(false)
+                        e.target.value = ''
+                      }
+                    }}
+                  />
+                  {insertingImage ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                        <circle cx="9" cy="9" r="2"/>
+                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                      </svg>
+                      Insert Image
+                    </>
+                  )}
+                </label>
+              </div>
             </div>
 
             {activeTab === 'write' ? (
               <textarea
+                ref={bodyRef}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Write your post content in HTML..."
