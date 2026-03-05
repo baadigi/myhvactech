@@ -14,6 +14,7 @@ const popularCities = [
 
 const companyLinks = [
   { label: 'About', href: '/about' },
+  { label: 'Blog', href: '/blog' },
   { label: 'Contact', href: '/contact' },
   { label: 'For Contractors', href: '/for-contractors' },
   { label: 'Privacy Policy', href: '/privacy' },
@@ -32,19 +33,19 @@ export default function Footer() {
 
           {/* Column 1: Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <Logo className="[&_span]:text-white" showText={true} />
+            <Logo className="rounded-md" showText={true} />
             <p className="mt-4 text-sm text-neutral-400 leading-relaxed max-w-xs">
               The trusted directory for commercial HVAC contractors. Find, compare, and hire
               the best heating and cooling professionals near you.
             </p>
             <p className="mt-4 text-xs text-neutral-500">
               <a
-                href="https://www.perplexity.ai/computer"
+                href="https://www.baadigi.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-neutral-300 transition-colors underline underline-offset-2"
               >
-                Created with Perplexity Computer
+                Created by BaaDigi
               </a>
             </p>
           </div>

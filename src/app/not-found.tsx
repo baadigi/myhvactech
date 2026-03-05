@@ -29,10 +29,10 @@ export default function NotFound() {
             {/* Door */}
             <rect x="66" y="82" width="28" height="28" rx="2" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
             {/* Rooftop unit */}
-            <rect x="60" y="6" width="28" height="14" rx="3" fill="#2563eb" opacity="0.2" stroke="#2563eb" strokeWidth="1.5" />
-            <circle cx="74" cy="13" r="4" fill="#2563eb" opacity="0.3" stroke="#2563eb" strokeWidth="1.5" />
+            <rect x="60" y="6" width="28" height="14" rx="3" fill="#134a8a" opacity="0.2" stroke="#134a8a" strokeWidth="1.5" />
+            <circle cx="74" cy="13" r="4" fill="#134a8a" opacity="0.3" stroke="#134a8a" strokeWidth="1.5" />
             {/* Question mark */}
-            <text x="74" y="16" textAnchor="middle" fontSize="8" fill="#2563eb" fontWeight="700" fontFamily="system-ui">?</text>
+            <text x="74" y="16" textAnchor="middle" fontSize="8" fill="#134a8a" fontWeight="700" fontFamily="system-ui">?</text>
             {/* Disconnected lines */}
             <line x1="50" y1="4" x2="42" y2="16" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="3 2" strokeLinecap="round" />
             <line x1="98" y1="4" x2="106" y2="16" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="3 2" strokeLinecap="round" />

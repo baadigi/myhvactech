@@ -369,6 +369,40 @@ export default function HomePage() {
       </section>
 
       {/* ================================================
+          BRAND LOGOS MARQUEE
+      ================================================ */}
+      <section className="py-10 sm:py-12 bg-white border-b border-neutral-100" aria-label="Brands we service">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-center text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-6">
+            Contractors experienced with all major brands
+          </p>
+          <div className="relative overflow-hidden">
+            {/* Fade edges */}
+            <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" aria-hidden="true" />
+            <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" aria-hidden="true" />
+            {/* Scrolling track */}
+            <div className="flex animate-marquee whitespace-nowrap gap-12 sm:gap-16">
+              {[
+                'Carrier', 'Trane', 'Lennox', 'Daikin', 'York',
+                'Mitsubishi Electric', 'Johnson Controls', 'Honeywell',
+                'Bosch', 'Rheem', 'McQuay', 'Heil', 'Goodman', 'American Standard',
+                'Carrier', 'Trane', 'Lennox', 'Daikin', 'York',
+                'Mitsubishi Electric', 'Johnson Controls', 'Honeywell',
+                'Bosch', 'Rheem', 'McQuay', 'Heil', 'Goodman', 'American Standard',
+              ].map((brand, i) => (
+                <span
+                  key={`${brand}-${i}`}
+                  className="inline-block text-sm sm:text-base font-semibold text-neutral-300 select-none"
+                >
+                  {brand}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================
           HOW IT WORKS
       ================================================ */}
       <section className="py-16 sm:py-20 bg-white" aria-labelledby="how-it-works-heading">

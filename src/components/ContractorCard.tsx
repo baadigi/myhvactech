@@ -89,7 +89,7 @@ export default function ContractorCard({
           ) : (
             <div
               className="w-16 h-16 rounded-lg flex items-center justify-center text-lg font-bold text-white shrink-0"
-              style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #134a8a 0%, #0e3060 100%)' }}
               aria-hidden="true"
             >
               {initials}

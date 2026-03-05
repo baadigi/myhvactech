@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 const navLinks = [
   { label: 'Find Contractors', href: '/search' },
   { label: 'Services', href: '/services' },
+  { label: 'Blog', href: '/blog' },
   { label: 'For Contractors', href: '/for-contractors' },
 ]
 
