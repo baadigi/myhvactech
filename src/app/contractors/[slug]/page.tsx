@@ -236,7 +236,7 @@ export default async function ContractorProfilePage({ params }: Props) {
       <main className="min-h-screen bg-neutral-50">
 
         {/* ── Cover Image Area ─────────────────────────────────────────────── */}
-        <div className="h-48 md:h-56 bg-gradient-to-br from-primary-700 to-primary-900 relative overflow-hidden">
+        <div className="h-36 md:h-44 bg-gradient-to-br from-primary-700 to-primary-900 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">
             <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-white translate-x-16 -translate-y-16" />
             <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-white -translate-x-12 translate-y-12" />
@@ -246,7 +246,7 @@ export default async function ContractorProfilePage({ params }: Props) {
         <div className="max-w-7xl mx-auto px-4">
 
           {/* ── Header ────────────────────────────────────────────────────── */}
-          <div className="relative -mt-12 mb-6">
+          <div className="relative -mt-16 mb-6 bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
               {/* Logo */}
               <div className="w-24 h-24 rounded-xl border-4 border-white shadow-lg bg-primary-600 flex items-center justify-center shrink-0">
