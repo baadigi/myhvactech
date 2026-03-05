@@ -93,11 +93,7 @@ export async function GET(request: NextRequest) {
         phone,
         slot_tier,
         metro_area,
-        owner_id,
-        google_place_id,
-        google_rating,
-        google_review_count,
-        google_last_synced_at
+        owner_id
       `, { count: 'exact' })
 
     // Filters
@@ -264,14 +260,54 @@ export async function POST(request: NextRequest) {
       profile_views: 0,
     }
 
-    const { data: contractor, error: insertError } = await db
+    // First attempt with all fields
+    let { data: contractor, error: insertError } = await db
       .from('contractors')
       .insert(payload)
       .select()
       .single()
 
+    // If it fails with a column error, try with minimal fields
+    if (insertError) {
+      console.error('Admin contractor insert error (attempt 1):', insertError.message)
+
+      // Strip optional google/extended fields that might not exist yet
+      const safePayload: Record<string, unknown> = {}
+      const coreFields = [
+        'owner_id', 'company_name', 'slug', 'city', 'state', 'country',
+        'phone', 'email', 'website', 'street_address', 'zip_code',
+        'description', 'short_description', 'license_number', 'year_established',
+        'is_verified', 'is_featured', 'is_claimed', 'commercial_verified',
+        'insurance_verified', 'subscription_tier', 'subscription_status',
+        'slot_tier', 'metro_area',
+        'system_types', 'building_types_served', 'brands_serviced',
+        'tonnage_range_min', 'tonnage_range_max', 'service_radius_miles',
+        'years_commercial_experience',
+        'num_technicians', 'num_nate_certified', 'emergency_response_minutes',
+        'offers_24_7', 'multi_site_coverage', 'max_sites_supported',
+        'offers_service_agreements', 'service_agreement_types', 'dispatch_crm',
+        'uses_gps_tracking', 'avg_quote_turnaround_hours', 'sla_summary',
+        'avg_rating', 'review_count', 'profile_views',
+      ]
+      for (const key of coreFields) {
+        if (key in payload) safePayload[key] = (payload as Record<string, unknown>)[key]
+      }
+
+      const retry = await db
+        .from('contractors')
+        .insert(safePayload)
+        .select()
+        .single()
+
+      contractor = retry.data
+      insertError = retry.error
+
+      if (insertError) {
+        console.error('Admin contractor insert error (attempt 2):', insertError.message)
+      }
+    }
+
     if (insertError || !contractor) {
-      console.error('Admin contractor insert error:', insertError)
       return NextResponse.json(
         { error: insertError?.message || 'Failed to create contractor' },
         { status: 500 }
