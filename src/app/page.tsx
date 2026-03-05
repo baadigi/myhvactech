@@ -392,7 +392,7 @@ export default function HomePage() {
               ].map((brand, i) => (
                 <span
                   key={`${brand}-${i}`}
-                  className="inline-block text-sm sm:text-base font-semibold text-neutral-300 select-none"
+                  className="inline-block text-sm sm:text-base font-semibold text-neutral-500 select-none"
                 >
                   {brand}
                 </span>
