@@ -269,6 +269,7 @@ export default function AdminAddContractorPage() {
         return
       }
       set('description', data.description)
+      if (data.short_description) set('short_description', data.short_description)
     } catch {
       setError('Failed to generate AI description')
     } finally {

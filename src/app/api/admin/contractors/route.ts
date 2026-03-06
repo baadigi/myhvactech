@@ -109,7 +109,12 @@ export async function GET(request: NextRequest) {
     }
     if (verified === 'yes') {
       query = query.eq('is_verified', true)
-    } else if (verified === 'no') {
+    }
+
+  const missingDesc = searchParams.get('missing_descriptions')
+  if (missingDesc === 'true') {
+    query = query.or('description.is.null,description.eq.')
+  } else if (verified === 'no') {
       query = query.eq('is_verified', false)
     }
 

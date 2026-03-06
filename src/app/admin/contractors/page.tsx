@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 
@@ -59,6 +59,11 @@ export default function AdminContractorsPage() {
   const [syncAllLoading, setSyncAllLoading] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
+  const [genQueueRunning, setGenQueueRunning] = useState(false)
+  const [genQueueProgress, setGenQueueProgress] = useState(0)
+  const [genQueueTotal, setGenQueueTotal] = useState(0)
+  const [genQueueCurrent, setGenQueueCurrent] = useState('')
+  const genQueueCancelRef = useRef(false)
 
   const limit = 50
 
@@ -287,7 +292,71 @@ export default function AdminContractorsPage() {
     }
   }
 
-  const deleteContractor = async (id: string, name: string) => {
+  const generateAllDescriptions = async () => {
+    setGenQueueRunning(true)
+    setGenQueueProgress(0)
+    genQueueCancelRef.current = false
+    setSyncMessage(null)
+
+    try {
+      // Fetch all contractor IDs that are missing descriptions
+      const res = await fetch('/api/admin/contractors?missing_descriptions=true&limit=1000')
+      if (!res.ok) throw new Error('Failed to fetch contractors')
+      const data = await res.json()
+      const queue: { id: string; company_name: string }[] = data.contractors || []
+
+      setGenQueueTotal(queue.length)
+
+      if (queue.length === 0) {
+        setSyncMessage('All contractors already have descriptions — nothing to generate')
+        setGenQueueRunning(false)
+        return
+      }
+
+      let completed = 0
+      let failed = 0
+
+      for (const contractor of queue) {
+        // Check for cancellation
+        if (genQueueCancelRef.current) {
+          setSyncMessage(`Queue cancelled — generated ${completed} of ${queue.length} descriptions (${failed} failed)`)
+          break
+        }
+
+        setGenQueueCurrent(contractor.company_name)
+
+        try {
+          const descRes = await fetch('/api/admin/generate-description', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contractor_id: contractor.id, save: true }),
+          })
+
+          if (descRes.ok) {
+            completed++
+          } else {
+            failed++
+          }
+        } catch {
+          failed++
+        }
+
+        setGenQueueProgress(completed + failed)
+      }
+
+      if (!genQueueCancelRef.current) {
+        setSyncMessage(`AI descriptions complete — generated ${completed} of ${queue.length}${failed > 0 ? ` (${failed} failed)` : ''}`)
+      }
+      fetchContractors()
+    } catch (err) {
+      setSyncMessage(`Queue failed: ${err instanceof Error ? err.message : 'unknown error'}`)
+    } finally {
+      setGenQueueRunning(false)
+      setGenQueueCurrent('')
+    }
+  }
+
+    const deleteContractor = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"? This removes all reviews, leads, photos, and projects. This cannot be undone.`)) {
       return
     }
@@ -332,6 +401,17 @@ export default function AdminContractorsPage() {
             </svg>
             Sync Google Reviews
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={genQueueRunning ? () => { genQueueCancelRef.current = true } : generateAllDescriptions}
+            disabled={syncAllLoading}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7L12 16.4 5.7 21l2.3-7L2 9.4h7.6z"/>
+            </svg>
+            {genQueueRunning ? 'Stop Generating' : 'Generate All Descriptions'}
+          </Button>
           <Link href="/admin/contractors/add">
             <Button size="sm">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -356,7 +436,35 @@ export default function AdminContractorsPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* AI Generation Queue Progress */}
+      {genQueueRunning && (
+        <div className="mb-4 px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-purple-800">
+              Generating descriptions... {genQueueProgress}/{genQueueTotal}
+            </span>
+            <button
+              onClick={() => { genQueueCancelRef.current = true }}
+              className="text-xs text-purple-500 hover:text-purple-700"
+            >
+              Cancel
+            </button>
+          </div>
+          <div className="w-full h-2 bg-purple-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-purple-500 rounded-full transition-all duration-300"
+              style={{ width: `${genQueueTotal > 0 ? (genQueueProgress / genQueueTotal) * 100 : 0}%` }}
+            />
+          </div>
+          {genQueueCurrent && (
+            <p className="text-xs text-purple-600 mt-1.5 truncate">
+              Writing: {genQueueCurrent}
+            </p>
+          )}
+        </div>
+      )}
+
+            {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         {/* Search */}
         <div className="relative flex-1 min-w-48">

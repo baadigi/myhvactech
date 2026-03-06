@@ -247,7 +247,7 @@ async function generateWithClaude(
   companyName: string,
   websiteText: string | null,
   seoKeywords: string[] = []
-): Promise<string> {
+): Promise<{ full: string; short: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY not configured')
@@ -292,7 +292,13 @@ Instructions:
 - If website content reveals specifics not in the database (year founded, certifications, project types, client testimonials, specific services), incorporate those
 - If no website content is available and the database facts are thin, write a shorter but still useful description (~150 words) rather than padding with generic fluff
 
-Write the description now. Output ONLY the description text.`
+Write both outputs now. Format your response EXACTLY like this (including the separator):
+
+FULL_DESCRIPTION:
+[your 150-300 word description here]
+
+SHORT_DESCRIPTION:
+[your 150-155 character SEO meta snippet here — must be under 155 characters, pack in city + top differentiator + CTA-worthy detail]`
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -323,7 +329,14 @@ Write the description now. Output ONLY the description text.`
     throw new Error('Claude returned empty response')
   }
 
-  return text
+  // Parse out both descriptions
+  const fullMatch = text.match(/FULL_DESCRIPTION:\s*\n([\s\S]*?)(?:\nSHORT_DESCRIPTION:|$)/)
+  const shortMatch = text.match(/SHORT_DESCRIPTION:\s*\n([\s\S]*?)$/)
+
+  const fullDesc = fullMatch ? fullMatch[1].trim() : text
+  const shortDesc = shortMatch ? shortMatch[1].trim().slice(0, 160) : ''
+
+  return { full: fullDesc, short: shortDesc }
 }
 
 // Fallback template-based generation (no AI API needed)
@@ -451,24 +464,28 @@ export async function POST(request: NextRequest) {
     const seoKeywords = buildSeoKeywords(c)
 
     let description: string
+    let shortDescription: string = ''
     let source: 'claude' | 'template'
 
     // Try Claude first, fall back to template
     try {
-      description = await generateWithClaude(factSheet, c.company_name, websiteText, seoKeywords)
+      const aiResult = await generateWithClaude(factSheet, c.company_name, websiteText, seoKeywords)
+      description = aiResult.full
+      shortDescription = aiResult.short
 
       // Check minimum length — retry once if too short
       const wordCount = description.split(/\s+/).length
       if (wordCount < 100) {
         console.log(`First attempt too short (${wordCount} words), retrying with stronger prompt...`)
-        const retryDescription = await generateWithClaude(
+        const retryResult = await generateWithClaude(
           factSheet + '\n\nIMPORTANT: Your previous attempt was only ' + wordCount + ' words. The MINIMUM is 150 words. Write a more comprehensive description covering the company\'s service area, capabilities, and value to facility managers.',
           c.company_name,
           websiteText,
           seoKeywords
         )
-        if (retryDescription.split(/\s+/).length > wordCount) {
-          description = retryDescription
+        if (retryResult.full.split(/\s+/).length > wordCount) {
+          description = retryResult.full
+          shortDescription = retryResult.short
         }
       }
 
@@ -483,7 +500,7 @@ export async function POST(request: NextRequest) {
     if (save && contractor_id) {
       const { error: updateError } = await db
         .from('contractors')
-        .update({ description })
+        .update({ description, ...(shortDescription ? { short_description: shortDescription } : {}) })
         .eq('id', contractor_id)
 
       if (updateError) {
@@ -494,6 +511,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       description,
+      short_description: shortDescription,
       source,
       saved: !!(save && contractor_id),
       word_count: description.split(/\s+/).length,
