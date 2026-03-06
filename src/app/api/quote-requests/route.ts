@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+
+const NOTIFY_EMAIL = 'ryan@baadigi.com'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,11 +102,9 @@ export async function POST(request: NextRequest) {
 
   // ── Build the record ──────────────────────────────────────────────────────
 
-  const quoteRequestId = `qr_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
   const now = new Date().toISOString()
 
   const record = {
-    id: quoteRequestId,
     created_at: now,
     requestor_name: body.requestor_name.trim(),
     requestor_email: body.requestor_email.trim().toLowerCase(),
@@ -122,93 +123,95 @@ export async function POST(request: NextRequest) {
     property_city: body.property_city ?? null,
     property_state: body.property_state ?? null,
     property_zip: body.property_zip ?? null,
-    metro_area: null,
-    assigned_contractor_ids: [],
-    max_contractors: 3,
     status: 'new',
-    routed_at: null,
-    expires_at: null,
-    source: body.source ?? 'api',
-    estimated_deal_value: null,
+    source: body.source ?? 'website',
   }
 
-  // ── Persist (Supabase integration point) ─────────────────────────────────
+  // ── Persist to Supabase ─────────────────────────────────────────────────
 
-  // TODO: Replace the console.log below with a real Supabase insert:
-  //
-  //   import { createClient } from '@supabase/supabase-js'
-  //   const supabase = createClient(
-  //     process.env.SUPABASE_URL!,
-  //     process.env.SUPABASE_SERVICE_ROLE_KEY!
-  //   )
-  //   const { data, error } = await supabase
-  //     .from('quote_requests')
-  //     .insert(record)
-  //     .select('id')
-  //     .single()
-  //   if (error) throw error
+  const supabase = await createClient()
+  const { data: inserted, error: dbError } = await supabase
+    .from('quote_requests')
+    .insert(record)
+    .select('id')
+    .single()
 
-  console.log('[quote-requests] New quote request received:', {
-    id: record.id,
-    building_type: record.building_type,
-    service_type: record.service_type,
-    property_city: record.property_city,
-    property_state: record.property_state,
-    requestor_email: record.requestor_email,
-    created_at: record.created_at,
-  })
+  if (dbError) {
+    console.error('Quote request insert error:', dbError)
+    // Don't fail — still send notification
+  }
 
-  // ── TODO: Lead routing logic ───────────────────────────────────────────────
-  //
-  // After insert, trigger the lead router:
-  //   1. Query contractors WHERE:
-  //      - building_types_served @> [record.building_type]
-  //      - service areas overlap property_city/property_state
-  //      - subscription_tier IN ('silver', 'gold') for preferred routing
-  //      - commercial_verified = true (if timing is emergency_now)
-  //   2. Score & rank by: slot_tier, avg_rating, avg_quote_turnaround_hours
-  //   3. Assign top N=3 contractor IDs to record.assigned_contractor_ids
-  //   4. Update record status to 'routing', then 'sent'
+  const quoteId = inserted?.id || `qr_${Date.now()}`
 
-  // ── TODO: Nurture sequence trigger ────────────────────────────────────────
-  //
-  // After successful insert, enqueue a nurture email to the requestor:
-  //   await emailQueue.add('quote-request-confirmation', {
-  //     to: record.requestor_email,
-  //     name: record.requestor_name,
-  //     quote_request_id: record.id,
-  //     service_type: record.service_type,
-  //     city: record.property_city,
-  //   })
-  //
-  // Follow-up sequence (via Resend / SendGrid / Loops):
-  //   - T+0: Confirmation email with what to expect
-  //   - T+4h: "X contractors have viewed your request" update
-  //   - T+24h: If no quotes, widen search radius and re-route
+  // ── Send notification email ─────────────────────────────────────────────
 
-  // ── TODO: Contractor notification ─────────────────────────────────────────
-  //
-  // For each assigned contractor, send a real-time notification:
-  //   for (const contractorId of record.assigned_contractor_ids) {
-  //     await notifyContractor(contractorId, {
-  //       type: 'new_quote_request',
-  //       quote_request_id: record.id,
-  //       building_type: record.building_type,
-  //       service_type: record.service_type,
-  //       property_city: record.property_city,
-  //       estimated_deal_value: record.estimated_deal_value,
-  //     })
-  //   }
-  //
-  // Notification channels by subscription tier:
-  //   - free/bronze: email only
-  //   - silver: email + SMS
-  //   - gold: email + SMS + CRM webhook (dispatch_crm)
+  const timingLabels: Record<string, string> = {
+    emergency_now: '🚨 Emergency — Right Now',
+    this_week: '⚡ This Week',
+    this_month: '📅 This Month',
+    this_quarter: '📋 This Quarter',
+    planning_ahead: '🔮 Planning Ahead',
+  }
+
+  console.log(`[QUOTE REQUEST] New quote from ${record.requestor_name} <${record.requestor_email}>`)
+  console.log(`  Building: ${record.building_type} | Service: ${record.service_type} | Location: ${record.property_city}, ${record.property_state}`)
+
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (supabaseUrl && serviceKey) {
+      await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({
+          to: NOTIFY_EMAIL,
+          subject: `[My HVAC Tech] New Quote Request: ${record.building_type} ${record.service_type} in ${record.property_city || 'Unknown'}, ${record.property_state || ''}`,
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+              <div style="background: #171717; color: white; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+                <h1 style="margin: 0; font-size: 20px; font-weight: 700;">New Quote Request</h1>
+                <p style="margin: 8px 0 0; color: #a3a3a3; font-size: 14px;">My HVAC Tech &middot; ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              </div>
+              <div style="border: 1px solid #e5e5e5; border-top: none; padding: 24px 32px; border-radius: 0 0 12px 12px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                  <tr><td style="padding: 8px 0; color: #737373; width: 130px;">Contact</td><td style="padding: 8px 0; font-weight: 600;">${record.requestor_name}</td></tr>
+                  <tr><td style="padding: 8px 0; color: #737373;">Email</td><td style="padding: 8px 0;"><a href="mailto:${record.requestor_email}" style="color: #0284c7;">${record.requestor_email}</a></td></tr>
+                  ${record.requestor_phone ? `<tr><td style="padding: 8px 0; color: #737373;">Phone</td><td style="padding: 8px 0;">${record.requestor_phone}</td></tr>` : ''}
+                  ${record.company_name ? `<tr><td style="padding: 8px 0; color: #737373;">Company</td><td style="padding: 8px 0;">${record.company_name}</td></tr>` : ''}
+                  ${record.requestor_title ? `<tr><td style="padding: 8px 0; color: #737373;">Title</td><td style="padding: 8px 0;">${record.requestor_title}</td></tr>` : ''}
+                </table>
+                <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" />
+                <h3 style="font-size: 14px; font-weight: 700; color: #171717; margin: 0 0 12px;">Project Details</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                  <tr><td style="padding: 8px 0; color: #737373; width: 130px;">Building Type</td><td style="padding: 8px 0; font-weight: 600;">${record.building_type}</td></tr>
+                  <tr><td style="padding: 8px 0; color: #737373;">Service Type</td><td style="padding: 8px 0;">${record.service_type}</td></tr>
+                  <tr><td style="padding: 8px 0; color: #737373;">Systems</td><td style="padding: 8px 0;">${record.system_types.join(', ') || 'Not specified'}</td></tr>
+                  ${record.property_sqft ? `<tr><td style="padding: 8px 0; color: #737373;">Sq Ft</td><td style="padding: 8px 0;">${Number(record.property_sqft).toLocaleString()}</td></tr>` : ''}
+                  ${record.num_units_rtus ? `<tr><td style="padding: 8px 0; color: #737373;">Units/RTUs</td><td style="padding: 8px 0;">${record.num_units_rtus}</td></tr>` : ''}
+                  <tr><td style="padding: 8px 0; color: #737373;">Location</td><td style="padding: 8px 0;">${[record.property_city, record.property_state, record.property_zip].filter(Boolean).join(', ') || 'Not provided'}</td></tr>
+                  ${record.budget_band ? `<tr><td style="padding: 8px 0; color: #737373;">Budget</td><td style="padding: 8px 0;">${record.budget_band}</td></tr>` : ''}
+                  <tr><td style="padding: 8px 0; color: #737373;">Timing</td><td style="padding: 8px 0;">${timingLabels[record.timing || ''] || record.timing || 'Not specified'}</td></tr>
+                </table>
+                ${record.current_issues ? `<hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" /><p style="font-size: 13px; color: #737373; margin-bottom: 4px;">Issues Described:</p><p style="font-size: 14px; color: #404040; line-height: 1.6; white-space: pre-wrap;">${record.current_issues}</p>` : ''}
+                <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" />
+                <a href="https://myhvac.tech/admin/leads" style="display: inline-block; background: #171717; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">View in Admin Panel</a>
+              </div>
+            </div>
+          `,
+        }),
+      }).catch(() => {})
+    }
+  } catch {
+    // Silently fail
+  }
 
   return NextResponse.json(
     {
       success: true,
-      quote_request_id: quoteRequestId,
+      quote_request_id: quoteId,
       message: 'Quote request received. We are matching you with vetted contractors.',
     },
     { status: 201 }
