@@ -244,9 +244,36 @@ export default function AdminAddContractorPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
 
   const set = (field: keyof FormData, value: unknown) => {
     setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const generateAIDescription = async () => {
+    if (!form.company_name.trim()) {
+      setError('Enter a company name before generating a description')
+      return
+    }
+    setAiLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ form_data: { ...form } }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Failed to generate description')
+        return
+      }
+      set('description', data.description)
+    } catch {
+      setError('Failed to generate AI description')
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -531,14 +558,45 @@ export default function AdminAddContractorPage() {
               />
               <div className="text-right text-xs text-neutral-400 mt-0.5">{form.short_description.length}/160</div>
             </div>
-            <Textarea
-              id="description"
-              label="Full Description"
-              value={form.description}
-              onChange={e => set('description', e.target.value)}
-              placeholder="Detailed company description, specialties, certifications…"
-              rows={5}
-            />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="description">Full Description</Label>
+                <button
+                  type="button"
+                  onClick={generateAIDescription}
+                  disabled={aiLoading}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-wait transition-all shadow-sm"
+                >
+                  {aiLoading ? (
+                    <>
+                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      Writing…
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 3l1.912 5.813L20 12l-6.088 3.187L12 21l-1.912-5.813L4 12l6.088-3.187z"/>
+                      </svg>
+                      Write with AI
+                    </>
+                  )}
+                </button>
+              </div>
+              <textarea
+                id="description"
+                value={form.description}
+                onChange={e => set('description', e.target.value)}
+                placeholder="Detailed company description, specialties, certifications…"
+                rows={5}
+                className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder:text-neutral-400 resize-y"
+              />
+              {form.description && (
+                <div className="text-right text-xs text-neutral-400 mt-0.5">{form.description.split(/\s+/).filter(Boolean).length} words</div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -295,8 +295,47 @@ function generateFallback(c: ContractorRow): string {
   return parts.join(' ')
 }
 
+// Build a ContractorRow from inline form data (for Add page where no DB record exists yet)
+function formDataToContractorRow(form: Record<string, unknown>): ContractorRow {
+  return {
+    company_name: (form.company_name as string) || 'Unknown',
+    city: (form.city as string) || '',
+    state: (form.state as string) || '',
+    year_established: form.year_established ? Number(form.year_established) : null,
+    system_types: (form.system_types as string[]) || [],
+    building_types_served: (form.building_types_served as string[]) || [],
+    brands_serviced: (form.brands_serviced as string[]) || [],
+    emergency_response_minutes: form.emergency_response_minutes ? Number(form.emergency_response_minutes) : null,
+    offers_24_7: !!form.offers_24_7,
+    multi_site_coverage: !!form.multi_site_coverage,
+    max_sites_supported: form.max_sites_supported ? Number(form.max_sites_supported) : null,
+    num_technicians: form.num_technicians ? Number(form.num_technicians) : null,
+    num_nate_certified: form.num_nate_certified ? Number(form.num_nate_certified) : null,
+    years_commercial_experience: form.years_commercial_experience ? Number(form.years_commercial_experience) : null,
+    offers_service_agreements: !!form.offers_service_agreements,
+    service_agreement_types: (form.service_agreement_types as string[]) || [],
+    sla_summary: (form.sla_summary as string) || null,
+    google_rating: form.google_rating ? Number(form.google_rating) : null,
+    google_review_count: form.google_review_count ? Number(form.google_review_count) : null,
+    google_editorial_summary: (form.google_editorial_summary as string) || null,
+    google_formatted_address: (form.google_formatted_address as string) || null,
+    google_phone: (form.google_phone as string) || null,
+    google_website: (form.google_website as string) || null,
+    google_reviews: (form.google_reviews as ContractorRow['google_reviews']) || null,
+    tonnage_range_min: form.tonnage_range_min ? Number(form.tonnage_range_min) : null,
+    tonnage_range_max: form.tonnage_range_max ? Number(form.tonnage_range_max) : null,
+    service_radius_miles: form.service_radius_miles ? Number(form.service_radius_miles) : 50,
+    license_number: (form.license_number as string) || null,
+    insurance_verified: !!form.insurance_verified,
+    uses_gps_tracking: !!form.uses_gps_tracking,
+    dispatch_crm: (form.dispatch_crm as string) || null,
+    description: (form.description as string) || null,
+  }
+}
+
 // POST — Generate an "About Us" description for a contractor
 // Body: { contractor_id: string, save?: boolean }
+//   OR: { form_data: {...}, save?: false }  (for unsaved Add form)
 export async function POST(request: NextRequest) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -304,29 +343,36 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { contractor_id, save } = body
+    const { contractor_id, save, form_data } = body
 
-    if (!contractor_id) {
-      return NextResponse.json({ error: 'contractor_id is required' }, { status: 400 })
+    if (!contractor_id && !form_data) {
+      return NextResponse.json({ error: 'contractor_id or form_data is required' }, { status: 400 })
     }
 
+    let c: ContractorRow
     const db = createAdminClient()
 
-    const { data: contractor, error } = await db
-      .from('contractors')
-      .select('*')
-      .eq('id', contractor_id)
-      .single()
+    if (contractor_id) {
+      // Existing contractor — fetch from DB
+      const { data: contractor, error } = await db
+        .from('contractors')
+        .select('*')
+        .eq('id', contractor_id)
+        .single()
 
-    if (error || !contractor) {
-      return NextResponse.json({ error: 'Contractor not found' }, { status: 404 })
+      if (error || !contractor) {
+        return NextResponse.json({ error: 'Contractor not found' }, { status: 404 })
+      }
+      c = contractor as unknown as ContractorRow
+    } else {
+      // Inline form data — build a ContractorRow from it
+      c = formDataToContractorRow(form_data)
     }
 
-    const c = contractor as unknown as ContractorRow
     const factSheet = buildFactSheet(c)
 
     // Try to fetch their website for richer context
-    const websiteUrl = c.google_website || null
+    const websiteUrl = c.google_website || (form_data?.website as string) || null
     let websiteText: string | null = null
     if (websiteUrl) {
       websiteText = await fetchWebsiteContent(websiteUrl)
@@ -345,8 +391,8 @@ export async function POST(request: NextRequest) {
       source = 'template'
     }
 
-    // Optionally save
-    if (save) {
+    // Optionally save (only works with contractor_id)
+    if (save && contractor_id) {
       const { error: updateError } = await db
         .from('contractors')
         .update({ description })
@@ -361,7 +407,7 @@ export async function POST(request: NextRequest) {
       success: true,
       description,
       source,
-      saved: !!save,
+      saved: !!(save && contractor_id),
       word_count: description.split(/\s+/).length,
       website_fetched: !!websiteText,
     })
