@@ -1,289 +1,13 @@
 import { Metadata } from 'next'
-import { MapPin, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
+import { MapPin, ChevronLeft, ChevronRight, ArrowRight, SearchX } from 'lucide-react'
 import { SITE_NAME, HVAC_SERVICES, BUILDING_TYPES } from '@/lib/constants'
 import type { SearchParams, Contractor, Service } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
 import SearchBar from '@/components/SearchBar'
 import SearchFilters from '@/components/SearchFilters'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
-
-const MOCK_SERVICES: Service[] = [
-  { id: '1', name: 'Commercial AC Repair', slug: 'commercial-ac-repair', category: 'Repair', description: null, icon: null },
-  { id: '2', name: 'Rooftop Unit (RTU) Service', slug: 'rooftop-unit-service', category: 'Maintenance', description: null, icon: null },
-  { id: '3', name: 'Preventive Maintenance Plans', slug: 'preventive-maintenance-plans', category: 'Maintenance', description: null, icon: null },
-  { id: '4', name: 'Emergency HVAC Service', slug: 'emergency-hvac-service', category: 'Emergency', description: null, icon: null },
-]
-
-const MOCK_CONTRACTORS: Contractor[] = [
-  {
-    id: '1',
-    created_at: '2023-01-15T00:00:00Z',
-    updated_at: '2024-06-01T00:00:00Z',
-    owner_id: null,
-    company_name: 'ArcticAir Commercial HVAC',
-    slug: 'arcticair-commercial-hvac',
-    description: 'ArcticAir has served the Phoenix metro commercial market for over 20 years. We specialize in rooftop units, chillers, and full building automation systems for office parks, hospitals, and retail centers.',
-    short_description: 'Phoenix\'s premier commercial HVAC contractor. Specializing in RTUs, chillers, and building automation for office, medical, and retail properties.',
-    logo_url: null,
-    cover_image_url: null,
-    website: 'https://arcticairhvac.example.com',
-    phone: '4805550182',
-    email: 'service@arcticairhvac.example.com',
-    street_address: '1420 E University Dr',
-    city: 'Phoenix',
-    state: 'AZ',
-    zip_code: '85034',
-    country: 'US',
-    location: null,
-    service_radius_miles: 75,
-    year_established: 2003,
-    license_number: 'AZ-ROC-245890',
-    insurance_verified: true,
-    is_verified: true,
-    is_claimed: true,
-    is_featured: true,
-    operating_hours: {
-      monday: { open: '07:00', close: '18:00' },
-      tuesday: { open: '07:00', close: '18:00' },
-      wednesday: { open: '07:00', close: '18:00' },
-      thursday: { open: '07:00', close: '18:00' },
-      friday: { open: '07:00', close: '17:00' },
-      saturday: { open: '08:00', close: '14:00' },
-    },
-    subscription_tier: 'gold',
-    stripe_customer_id: null,
-    stripe_subscription_id: null,
-    subscription_status: 'active',
-    meta_title: null,
-    meta_description: null,
-    avg_rating: 4.8,
-    review_count: 142,
-    profile_views: 8400,
-    distance_miles: 3.2,
-    services: MOCK_SERVICES,
-    // ── Commercial fields ──────────────────────────────────────────────────
-    years_commercial_experience: 22,
-    commercial_verified: true,
-    system_types: ['rtu', 'chilled_water', 'ahu', 'vrf'],
-    brands_serviced: ['Carrier', 'Trane', 'Johnson Controls', 'Daikin'],
-    tonnage_range_min: 5,
-    tonnage_range_max: 800,
-    building_types_served: ['office', 'healthcare', 'retail', 'industrial', 'government'],
-    emergency_response_minutes: 60,
-    offers_24_7: true,
-    sla_summary: '4-hour response SLA. 24/7 emergency dispatch. Dedicated account manager for multi-site portfolios.',
-    multi_site_coverage: true,
-    max_sites_supported: 50,
-    offers_service_agreements: true,
-    service_agreement_types: ['preventive_maintenance', 'full_service', 'parts_labor'],
-    dispatch_crm: 'ServiceTitan',
-    avg_quote_turnaround_hours: 2,
-    uses_gps_tracking: true,
-    num_technicians: 38,
-    num_nate_certified: 24,
-    metro_area: 'Phoenix, AZ',
-    slot_tier: 'exclusive',
-  },
-  {
-    id: '2',
-    created_at: '2021-04-10T00:00:00Z',
-    updated_at: '2024-05-15T00:00:00Z',
-    owner_id: null,
-    company_name: 'Desert Star Mechanical',
-    slug: 'desert-star-mechanical',
-    description: 'Full-service commercial HVAC for the Southwest. Licensed in AZ, NV, and CA. 24/7 emergency response with a dedicated dispatch team and GPS-tracked fleet.',
-    short_description: '24/7 emergency commercial HVAC service. Licensed across AZ, NV, and CA. Competitive rates with same-day response.',
-    logo_url: null,
-    cover_image_url: null,
-    website: 'https://desertstar.example.com',
-    phone: '6025550341',
-    email: null,
-    street_address: '8800 N 19th Ave',
-    city: 'Phoenix',
-    state: 'AZ',
-    zip_code: '85021',
-    country: 'US',
-    location: null,
-    service_radius_miles: 100,
-    year_established: 2010,
-    license_number: 'AZ-ROC-312045',
-    insurance_verified: true,
-    is_verified: true,
-    is_claimed: true,
-    is_featured: false,
-    operating_hours: null,
-    subscription_tier: 'silver',
-    stripe_customer_id: null,
-    stripe_subscription_id: null,
-    subscription_status: 'active',
-    meta_title: null,
-    meta_description: null,
-    avg_rating: 4.5,
-    review_count: 89,
-    profile_views: 3200,
-    distance_miles: 7.1,
-    services: [
-      { id: '4', name: 'Emergency HVAC Service', slug: 'emergency-hvac-service', category: 'Emergency', description: null, icon: null },
-      { id: '1', name: 'Commercial AC Repair', slug: 'commercial-ac-repair', category: 'Repair', description: null, icon: null },
-      { id: '5', name: 'Commercial Heating Repair', slug: 'commercial-heating-repair', category: 'Repair', description: null, icon: null },
-    ],
-    // ── Commercial fields ──────────────────────────────────────────────────
-    years_commercial_experience: 15,
-    commercial_verified: true,
-    system_types: ['rtu', 'split_system', 'heat_pump', 'boiler'],
-    brands_serviced: ['Rheem/Ruud', 'Lennox', 'York', 'Goodman/Amana', 'Carrier'],
-    tonnage_range_min: 3,
-    tonnage_range_max: 250,
-    building_types_served: ['retail', 'restaurant', 'industrial', 'multifamily', 'office'],
-    emergency_response_minutes: 45,
-    offers_24_7: true,
-    sla_summary: '45-min emergency response. Same-day service for most repairs. Licensed in AZ, NV, CA.',
-    multi_site_coverage: true,
-    max_sites_supported: 20,
-    offers_service_agreements: true,
-    service_agreement_types: ['preventive_maintenance', 'emergency_only'],
-    dispatch_crm: 'BuildOps',
-    avg_quote_turnaround_hours: 4,
-    uses_gps_tracking: true,
-    num_technicians: 22,
-    num_nate_certified: 14,
-    metro_area: 'Phoenix, AZ',
-    slot_tier: 'preferred',
-  },
-  {
-    id: '3',
-    created_at: '2019-08-22T00:00:00Z',
-    updated_at: '2024-04-30T00:00:00Z',
-    owner_id: null,
-    company_name: 'Pinnacle Climate Systems',
-    slug: 'pinnacle-climate-systems',
-    description: 'Specializing in energy-efficient HVAC retrofits, VRF system design, and building automation for office campuses and data centers. Our engineers hold LEED AP and CEM certifications.',
-    short_description: 'Energy-efficiency specialists for commercial buildings. Reduce your utility bills with our retrofit and automation solutions.',
-    logo_url: null,
-    cover_image_url: null,
-    website: 'https://pinnacleclimate.example.com',
-    phone: '4805550978',
-    email: null,
-    street_address: '3301 S 32nd St',
-    city: 'Phoenix',
-    state: 'AZ',
-    zip_code: '85040',
-    country: 'US',
-    location: null,
-    service_radius_miles: 50,
-    year_established: 2015,
-    license_number: 'AZ-ROC-398210',
-    insurance_verified: true,
-    is_verified: false,
-    is_claimed: true,
-    is_featured: false,
-    operating_hours: null,
-    subscription_tier: 'bronze',
-    stripe_customer_id: null,
-    stripe_subscription_id: null,
-    subscription_status: 'active',
-    meta_title: null,
-    meta_description: null,
-    avg_rating: 4.3,
-    review_count: 54,
-    profile_views: 1800,
-    distance_miles: 11.4,
-    services: [
-      { id: '6', name: 'Building Automation Systems', slug: 'building-automation-systems', category: 'Installation', description: null, icon: null },
-      { id: '7', name: 'Energy Audits & Retrofits', slug: 'energy-audits-retrofits', category: 'Maintenance', description: null, icon: null },
-      { id: '2', name: 'Rooftop Unit (RTU) Service', slug: 'rooftop-unit-service', category: 'Maintenance', description: null, icon: null },
-    ],
-    // ── Commercial fields ──────────────────────────────────────────────────
-    years_commercial_experience: 10,
-    commercial_verified: false,
-    system_types: ['vrf', 'chilled_water', 'ahu', 'cooling_tower'],
-    brands_serviced: ['Daikin', 'Mitsubishi', 'Bosch', 'Johnson Controls'],
-    tonnage_range_min: 20,
-    tonnage_range_max: 1200,
-    building_types_served: ['office', 'data_center', 'education', 'government'],
-    emergency_response_minutes: 120,
-    offers_24_7: false,
-    sla_summary: 'Scheduled maintenance contracts with annual energy benchmarking. 48-hour non-emergency response.',
-    multi_site_coverage: false,
-    max_sites_supported: null,
-    offers_service_agreements: true,
-    service_agreement_types: ['preventive_maintenance', 'full_service'],
-    dispatch_crm: 'FieldEdge',
-    avg_quote_turnaround_hours: 24,
-    uses_gps_tracking: false,
-    num_technicians: 11,
-    num_nate_certified: 7,
-    metro_area: 'Phoenix, AZ',
-    slot_tier: 'standard',
-  },
-  {
-    id: '4',
-    created_at: '2020-02-14T00:00:00Z',
-    updated_at: '2024-03-10T00:00:00Z',
-    owner_id: null,
-    company_name: 'Sonoran HVAC Solutions',
-    slug: 'sonoran-hvac-solutions',
-    description: 'Family-owned commercial HVAC serving the greater Phoenix and Scottsdale area. Specializing in multifamily, hospitality, and restaurant HVAC. Honest pricing, no upsells.',
-    short_description: 'Family-owned, 15 years experience. Serving Phoenix, Scottsdale, Tempe, and surrounding cities with prompt, reliable commercial HVAC service.',
-    logo_url: null,
-    cover_image_url: null,
-    website: null,
-    phone: '4805550613',
-    email: null,
-    street_address: '7120 E Camelback Rd',
-    city: 'Scottsdale',
-    state: 'AZ',
-    zip_code: '85251',
-    country: 'US',
-    location: null,
-    service_radius_miles: 40,
-    year_established: 2009,
-    license_number: null,
-    insurance_verified: false,
-    is_verified: false,
-    is_claimed: false,
-    is_featured: false,
-    operating_hours: null,
-    subscription_tier: 'free',
-    stripe_customer_id: null,
-    stripe_subscription_id: null,
-    subscription_status: 'inactive',
-    meta_title: null,
-    meta_description: null,
-    avg_rating: 4.1,
-    review_count: 28,
-    profile_views: 890,
-    distance_miles: 14.8,
-    services: [
-      { id: '1', name: 'Commercial AC Repair', slug: 'commercial-ac-repair', category: 'Repair', description: null, icon: null },
-      { id: '3', name: 'Preventive Maintenance Plans', slug: 'preventive-maintenance-plans', category: 'Maintenance', description: null, icon: null },
-    ],
-    // ── Commercial fields ──────────────────────────────────────────────────
-    years_commercial_experience: 15,
-    commercial_verified: false,
-    system_types: ['rtu', 'split_system', 'ptac'],
-    brands_serviced: ['Carrier', 'Trane', 'Heil', 'Bard'],
-    tonnage_range_min: 1,
-    tonnage_range_max: 60,
-    building_types_served: ['multifamily', 'hospitality', 'restaurant', 'retail'],
-    emergency_response_minutes: 90,
-    offers_24_7: false,
-    sla_summary: 'Same-day service for existing customers. Best-effort emergency response.',
-    multi_site_coverage: false,
-    max_sites_supported: null,
-    offers_service_agreements: false,
-    service_agreement_types: [],
-    dispatch_crm: null,
-    avg_quote_turnaround_hours: 8,
-    uses_gps_tracking: false,
-    num_technicians: 6,
-    num_nate_certified: 3,
-    metro_area: 'Phoenix, AZ',
-    slot_tier: null,
-  },
-]
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -320,31 +44,82 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 export default async function SearchPage({ searchParams }: Props) {
   const params = await searchParams
-  const city = params.city || 'Phoenix'
-  const state = params.state || 'AZ'
+  const city = params.city || ''
+  const state = params.state || ''
+  const q = params.q || ''
   const currentPage = parseInt(params.page || '1', 10)
-
-  // ── Client-side filtering would happen via server action / API in production ──
-  // For now, apply mock filtering to demonstrate the UX
-  let contractors = MOCK_CONTRACTORS
-
-  // Sort
+  const pageSize = 20
   const sort = params.sort || 'relevance'
-  if (sort === 'rating') {
-    contractors = [...contractors].sort((a, b) => b.avg_rating - a.avg_rating)
-  } else if (sort === 'distance') {
-    contractors = [...contractors].sort((a, b) => (a.distance_miles ?? 999) - (b.distance_miles ?? 999))
-  } else if (sort === 'reviews') {
-    contractors = [...contractors].sort((a, b) => b.review_count - a.review_count)
-  } else if (sort === 'response_time') {
-    contractors = [...contractors].sort(
-      (a, b) =>
-        (a.emergency_response_minutes ?? 9999) - (b.emergency_response_minutes ?? 9999)
-    )
+
+  // ── Fetch from Supabase ─────────────────────────────────
+  const supabase = await createClient()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let dbQuery: any = supabase
+    .from('contractors')
+    .select('*', { count: 'exact' })
+
+  // Location filter: city (case-insensitive)
+  if (city) {
+    dbQuery = dbQuery.ilike('city', city)
+  }
+  if (state) {
+    dbQuery = dbQuery.ilike('state', state)
   }
 
-  const totalResults = contractors.length
-  const totalPages = Math.ceil(totalResults / 10)
+  // Text search on company_name if q provided
+  if (q) {
+    dbQuery = dbQuery.ilike('company_name', `%${q}%`)
+  }
+
+  // Sidebar filters
+  if (params.verified === 'true') {
+    dbQuery = dbQuery.eq('is_verified', true)
+  }
+  if (params.emergency === 'true') {
+    dbQuery = dbQuery.eq('offers_24_7', true)
+  }
+  if (params.serviceAgreement === 'true') {
+    dbQuery = dbQuery.eq('offers_service_agreements', true)
+  }
+  if (params.multiSite === 'true') {
+    dbQuery = dbQuery.eq('multi_site_coverage', true)
+  }
+  if (params.minRating) {
+    const minR = parseFloat(params.minRating)
+    if (minR > 0) dbQuery = dbQuery.gte('avg_rating', minR)
+  }
+  if (params.buildingType) {
+    // building_types_served is a text[] column — use overlap
+    const types = params.buildingType.split(',')
+    dbQuery = dbQuery.overlaps('building_types_served', types)
+  }
+  if (params.systemType) {
+    const types = params.systemType.split(',')
+    dbQuery = dbQuery.overlaps('system_types', types)
+  }
+
+  // Sort
+  if (sort === 'rating') {
+    dbQuery = dbQuery.order('avg_rating', { ascending: false })
+  } else if (sort === 'reviews') {
+    dbQuery = dbQuery.order('review_count', { ascending: false })
+  } else if (sort === 'response_time') {
+    dbQuery = dbQuery.order('emergency_response_minutes', { ascending: true, nullsFirst: false })
+  } else {
+    // Default: verified first, then by name
+    dbQuery = dbQuery.order('is_verified', { ascending: false }).order('company_name', { ascending: true })
+  }
+
+  // Pagination
+  const from = (currentPage - 1) * pageSize
+  dbQuery = dbQuery.range(from, from + pageSize - 1)
+
+  const { data, count } = await dbQuery
+
+  const contractors: Contractor[] = (data ?? []) as unknown as Contractor[]
+  const totalResults = count ?? 0
+  const totalPages = Math.ceil(totalResults / pageSize)
 
   // Resolve active building type label for context header
   const activeBuildingType = params.buildingType
@@ -408,9 +183,14 @@ export default async function SearchPage({ searchParams }: Props) {
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
               <div>
                 <p className="text-sm text-neutral-500">
-                  <span className="font-semibold text-neutral-900">{totalResults} contractors</span>
-                  {' '}found in{' '}
-                  <span className="font-semibold text-neutral-900">{city}, {state}</span>
+                  <span className="font-semibold text-neutral-900">{totalResults} contractor{totalResults !== 1 ? 's' : ''}</span>
+                  {city ? (
+                    <>{' '}found in{' '}<span className="font-semibold text-neutral-900">{city}{state ? `, ${state}` : ''}</span></>
+                  ) : q ? (
+                    <>{' '}matching{' '}<span className="font-semibold text-neutral-900">&ldquo;{q}&rdquo;</span></>
+                  ) : (
+                    <>{' '}found</>
+                  )}
                 </p>
                 {/* Commercial context chips */}
                 {activeBuildingType && (
@@ -448,11 +228,23 @@ export default async function SearchPage({ searchParams }: Props) {
             </div>
 
             {/* Contractor list */}
-            <div className="space-y-3">
-              {contractors.map((contractor) => (
-                <ContractorCard key={contractor.id} contractor={contractor} />
-              ))}
-            </div>
+            {contractors.length === 0 ? (
+              <div className="text-center py-16">
+                <SearchX size={48} className="mx-auto text-neutral-300 mb-4" />
+                <h3 className="text-lg font-semibold text-neutral-800 mb-1">No contractors found</h3>
+                <p className="text-sm text-neutral-500 max-w-md mx-auto">
+                  {city
+                    ? `We don't have any contractors listed in ${city}${state ? `, ${state}` : ''} yet. Try a nearby city or broaden your search.`
+                    : 'Try searching for a specific city or company name.'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {contractors.map((contractor) => (
+                  <ContractorCard key={contractor.id} contractor={contractor} />
+                ))}
+              </div>
+            )}
 
             {/* Pagination */}
             {totalPages > 1 && (
