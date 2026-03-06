@@ -63,6 +63,7 @@ interface ContractorRow {
   google_formatted_address: string | null
   google_phone: string | null
   google_website: string | null
+  google_reviews: { author_name: string; text: string; rating: number }[] | null
   tonnage_range_min: number | null
   tonnage_range_max: number | null
   service_radius_miles: number
@@ -87,6 +88,19 @@ function buildFactSheet(c: ContractorRow): string {
   }
   if (c.google_editorial_summary) {
     facts.push(`Google description: ${c.google_editorial_summary}`)
+  }
+
+  // Include Google review snippets for voice/personality cues
+  if (c.google_reviews && c.google_reviews.length > 0) {
+    const topReviews = c.google_reviews
+      .filter((r) => r.text && r.text.length > 20 && r.rating >= 4)
+      .slice(0, 5)
+    if (topReviews.length > 0) {
+      facts.push(`\nNotable customer reviews:`)
+      for (const r of topReviews) {
+        facts.push(`- "${r.text.slice(0, 300)}" — ${r.author_name}`)
+      }
+    }
   }
 
   if (c.system_types.length > 0) {
@@ -123,33 +137,93 @@ function buildFactSheet(c: ContractorRow): string {
   return facts.join('\n')
 }
 
-async function generateWithClaude(factSheet: string, companyName: string): Promise<string> {
+// Fetch the contractor's own website for richer context
+async function fetchWebsiteContent(url: string): Promise<string | null> {
+  try {
+    // Clean URL
+    let cleanUrl = url.trim()
+    if (!cleanUrl.startsWith('http')) cleanUrl = `https://${cleanUrl}`
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+
+    const res = await fetch(cleanUrl, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'MyHVACTech-Bot/1.0' },
+      redirect: 'follow',
+    })
+    clearTimeout(timeout)
+
+    if (!res.ok) return null
+
+    const html = await res.text()
+
+    // Strip scripts, styles, nav, footer, then tags — extract body text
+    const stripped = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+      .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+      .replace(/<header[\s\S]*?<\/header>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&[a-z]+;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    // Take first ~3000 chars to keep prompt reasonable
+    return stripped.slice(0, 3000) || null
+  } catch {
+    return null
+  }
+}
+
+async function generateWithClaude(
+  factSheet: string,
+  companyName: string,
+  websiteText: string | null
+): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY not configured')
   }
 
-  const systemPrompt = `You are an expert commercial HVAC copywriter. You write unique, SEO-optimized business descriptions for commercial HVAC contractors listed on MyHVAC.tech — a directory built for property managers and facility managers (NOT homeowners).
+  const websiteSection = websiteText
+    ? `\n\nCONTENT FROM THEIR WEBSITE (use to extract real facts — services, history, differentiators, service areas, certifications):\n${websiteText}`
+    : ''
+
+  const systemPrompt = `You are an expert commercial HVAC copywriter who writes for MyHVAC.Tech — a directory built for property managers and facility managers who manage commercial buildings (NOT homeowners).
 
 Your writing must:
-- Sound completely human — varied sentence lengths, natural flow, no AI patterns
-- Be written from a third-person perspective about the company
-- Target facility managers and property managers as the audience
-- Naturally weave in relevant keywords (commercial HVAC, the city/state, system types, building types) without keyword stuffing
-- Emphasize E-E-A-T signals: real experience, specific capabilities, verifiable facts
-- Differentiate from residential-focused directories like Angi or HomeAdvisor by highlighting commercial proof points: tonnage handled, building types served, multi-site coverage, SLAs, emergency response
-- Be 150–250 words — concise but substantive
-- NEVER use generic filler like "look no further", "your one-stop shop", "committed to excellence", "dedicated team of professionals", "state-of-the-art", or similar clichés
+- Sound like a knowledgeable industry journalist profiling the company, not ad copy
+- Be third-person, present tense
+- Target facility managers and commercial property managers as the reader
+- Weave in relevant SEO keywords naturally: commercial HVAC, the city/metro area, specific system types and building types the company handles
+- Emphasize what a facility manager actually cares about: response times, system expertise, track record, scale of projects, coverage area, certifications
+- Highlight concrete differentiators from residential directories (Angi, HomeAdvisor): commercial-only focus, tonnage capacity, multi-building coverage, SLAs, emergency response guarantees
+- Be 200–300 words — meaty enough to rank, short enough to read
+- Open with the single most compelling fact about the company (e.g. "Since 1974..." or "Covering 92 commercial projects across DFW...")
+- Use short paragraphs (2–3 sentences max)
+- Include the city/metro in the first sentence
+- NEVER use these phrases: "look no further", "one-stop shop", "committed to excellence", "dedicated team", "state-of-the-art", "second to none", "unparalleled", "when it comes to", "whether you need X or Y"
 - NEVER start with "Looking for" or "When it comes to"
-- Every sentence must convey specific, useful information
-- Write each description so it would be unique even among other HVAC contractors — use the specific facts provided`
+- Every sentence must carry new information — no filler
+- If the fact sheet is thin, focus on location, Google rating, and whatever specifics exist rather than inventing vague claims`
 
-  const userPrompt = `Write a unique business description for this commercial HVAC contractor. Use ONLY the facts provided — do not invent capabilities or statistics.
+  const userPrompt = `Write a compelling business description for this commercial HVAC contractor.
 
-CONTRACTOR FACTS:
+CONTRACTOR FACTS (verified data from our database):
 ${factSheet}
+${websiteSection}
 
-Write the description now. Output ONLY the description text, no headers or labels.`
+Instructions:
+- Use facts from BOTH the database AND the website content (if provided)
+- Do NOT copy sentences verbatim from their website — rewrite in your own voice
+- If website content reveals specifics not in the database (year founded, certifications, project types, client testimonials, specific services), incorporate those
+- If no website content is available and the database facts are thin, write a shorter but still useful description (~150 words) rather than padding with generic fluff
+
+Write the description now. Output ONLY the description text.`
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -160,7 +234,7 @@ Write the description now. Output ONLY the description text, no headers or label
     },
     body: JSON.stringify({
       model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 500,
+      max_tokens: 700,
       system: systemPrompt,
       messages: [
         { role: 'user', content: userPrompt },
@@ -250,12 +324,20 @@ export async function POST(request: NextRequest) {
 
     const c = contractor as unknown as ContractorRow
     const factSheet = buildFactSheet(c)
+
+    // Try to fetch their website for richer context
+    const websiteUrl = c.google_website || null
+    let websiteText: string | null = null
+    if (websiteUrl) {
+      websiteText = await fetchWebsiteContent(websiteUrl)
+    }
+
     let description: string
     let source: 'claude' | 'template'
 
     // Try Claude first, fall back to template
     try {
-      description = await generateWithClaude(factSheet, c.company_name)
+      description = await generateWithClaude(factSheet, c.company_name, websiteText)
       source = 'claude'
     } catch (aiErr) {
       console.error('Claude generation failed, using template fallback:', aiErr)
@@ -281,6 +363,7 @@ export async function POST(request: NextRequest) {
       source,
       saved: !!save,
       word_count: description.split(/\s+/).length,
+      website_fetched: !!websiteText,
     })
   } catch (err) {
     console.error('Generate description error:', err)
