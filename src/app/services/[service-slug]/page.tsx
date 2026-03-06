@@ -5,7 +5,8 @@ import {
   Thermometer, Wind, Wrench, Settings, Building2, Zap,
   CheckCircle, ChevronRight, Search, MapPin, HelpCircle
 } from 'lucide-react'
-import { HVAC_SERVICES, US_STATES, SITE_NAME } from '@/lib/constants'
+import { HVAC_SERVICES, US_STATES, SITE_NAME, SITE_URL } from '@/lib/constants'
+import { ServiceSchema, FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -134,6 +135,17 @@ export default async function ServicePage({ params }: Props) {
 
   return (
     <main className="min-h-screen bg-neutral-50">
+      <ServiceSchema
+        name={service.name}
+        description={content?.full || `${service.name} is a critical commercial building service.`}
+        slug={serviceSlug}
+      />
+      <FAQSchema questions={faq.map(f => ({ question: f.q, answer: f.a }))} />
+      <BreadcrumbSchema items={[
+        { name: 'Home', url: SITE_URL },
+        { name: 'Services', url: `${SITE_URL}/services` },
+        { name: service.name, url: `${SITE_URL}/services/${serviceSlug}` },
+      ]} />
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section className="bg-white border-b border-neutral-200 py-12 px-4">

@@ -3,6 +3,8 @@ import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ArrowLeft, Calendar, Clock, User, Tag, ExternalLink, Newspaper } from 'lucide-react'
+import { BlogPostSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
+import { SITE_URL } from '@/lib/constants'
 
 const CATEGORY_LABELS: Record<string, string> = {
   'industry-news': 'Industry News',
@@ -119,6 +121,19 @@ export default async function BlogPostPage({
 
   return (
     <div className="bg-neutral-50 min-h-screen">
+      <BlogPostSchema
+        title={typedPost.title}
+        description={typedPost.excerpt || typedPost.title}
+        slug={typedPost.slug}
+        datePublished={typedPost.published_at}
+        author={typedPost.author_name || undefined}
+        imageUrl={typedPost.cover_image_url || undefined}
+      />
+      <BreadcrumbSchema items={[
+        { name: 'Home', url: SITE_URL },
+        { name: 'Blog', url: `${SITE_URL}/blog` },
+        { name: typedPost.title, url: `${SITE_URL}/blog/${typedPost.slug}` },
+      ]} />
       <article className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {/* Back Link */}
         <Link

@@ -16,6 +16,8 @@ import ContractorCard from '@/components/ContractorCard'
 import ContactForm from '@/components/ContactForm'
 import ContractorProfileTabs from '@/components/ContractorProfileTabs'
 import { formatPhoneNumber } from '@/lib/utils'
+import { BreadcrumbSchema } from '@/components/SchemaOrg'
+import { SITE_URL } from '@/lib/constants'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // ─── Data Fetching ──────────────────────────────────────────────────────────
@@ -232,6 +234,12 @@ export default async function ContractorProfilePage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <BreadcrumbSchema items={[
+        { name: 'Home', url: SITE_URL },
+        { name: contractor.state, url: `${SITE_URL}/${contractor.state.toLowerCase().replace(/\s+/g, '-')}` },
+        { name: contractor.city, url: `${SITE_URL}/${contractor.state.toLowerCase().replace(/\s+/g, '-')}/${contractor.city.toLowerCase().replace(/\s+/g, '-')}` },
+        { name: contractor.company_name, url: `${SITE_URL}/contractors/${contractor.slug}` },
+      ]} />
 
       <main className="min-h-screen bg-neutral-50">
 

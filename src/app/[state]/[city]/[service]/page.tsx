@@ -2,7 +2,8 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronRight, Shield, Star, DollarSign, HelpCircle, Wrench, Clock, CheckCircle, Search } from 'lucide-react'
-import { US_STATES, HVAC_SERVICES, SITE_NAME } from '@/lib/constants'
+import { US_STATES, HVAC_SERVICES, SITE_NAME, SITE_URL } from '@/lib/constants'
+import { ServiceSchema, FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
 import { MOCK_COMMERCIAL_FIELDS } from '@/lib/mockCommercialFields'
@@ -301,6 +302,18 @@ export default async function CityServicePage({ params }: Props) {
 
   return (
     <main className="min-h-screen bg-neutral-50">
+      <ServiceSchema
+        name={`${serviceObj.name} in ${cityName}, ${stateObj.abbr}`}
+        description={serviceDescription}
+        slug={service}
+      />
+      <FAQSchema questions={faq.map(f => ({ question: f.q, answer: f.a }))} />
+      <BreadcrumbSchema items={[
+        { name: 'Home', url: SITE_URL },
+        { name: stateObj.name, url: `${SITE_URL}/${state}` },
+        { name: cityName, url: `${SITE_URL}/${state}/${city}` },
+        { name: serviceObj.name, url: `${SITE_URL}/${state}/${city}/${service}` },
+      ]} />
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section className="bg-white border-b border-neutral-200 py-12 px-4">
