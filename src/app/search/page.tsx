@@ -1,13 +1,17 @@
 import { Metadata } from 'next'
 import { headers } from 'next/headers'
+import dynamic from 'next/dynamic'
 import { MapPin, ChevronLeft, ChevronRight, ArrowRight, SearchX } from 'lucide-react'
 import { SITE_NAME, HVAC_SERVICES, BUILDING_TYPES, US_STATES } from '@/lib/constants'
 import type { SearchParams, Contractor, Service } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
 import SearchBar from '@/components/SearchBar'
-import SearchFilters from '@/components/SearchFilters'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
+
+const SearchFilters = dynamic(() => import('@/components/SearchFilters'), {
+  loading: () => <div className="animate-pulse bg-neutral-100 rounded-xl h-48" />,
+})
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

@@ -1,24 +1,29 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import {
   Phone, Globe, Share2, CheckCircle, Star, MapPin, Zap,
   Clock, Shield, Camera, Calendar, ExternalLink, ChevronRight,
   Building2, Thermometer, Wrench, Award, ShieldCheck, Users,
   AlertTriangle, ClipboardList, Timer, Cpu
 } from 'lucide-react'
-import { SITE_NAME, SYSTEM_TYPES, SERVICE_AGREEMENT_TYPES } from '@/lib/constants'
+import { SITE_NAME, SITE_URL, SYSTEM_TYPES, SERVICE_AGREEMENT_TYPES } from '@/lib/constants'
 import type { Contractor, Review, ContractorPhoto, SampleProject, GoogleReview } from '@/lib/types'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import RatingStars from '@/components/RatingStars'
 import ContractorCard from '@/components/ContractorCard'
-import ContactForm from '@/components/ContactForm'
-import ContractorProfileTabs from '@/components/ContractorProfileTabs'
 import { formatPhoneNumber } from '@/lib/utils'
 import { BreadcrumbSchema } from '@/components/SchemaOrg'
-import { SITE_URL } from '@/lib/constants'
 import { createAdminClient } from '@/lib/supabase/admin'
+
+const ContactForm = dynamic(() => import('@/components/ContactForm'), {
+  loading: () => <div className="animate-pulse bg-neutral-100 rounded-xl h-64" />,
+})
+const ContractorProfileTabs = dynamic(() => import('@/components/ContractorProfileTabs'), {
+  loading: () => <div className="animate-pulse bg-neutral-100 rounded-xl h-96" />,
+})
 
 // ─── Data Fetching ──────────────────────────────────────────────────────────
 
