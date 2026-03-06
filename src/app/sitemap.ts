@@ -51,10 +51,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Contractor profiles
     const { data: contractors } = await supabase
       .from('contractors')
-      .select('slug, updated_at')
+      .select('slug, updated_at, city, state')
       .neq('subscription_status', 'cancelled')
 
     if (contractors) {
+      // Individual contractor pages
       contractors.forEach(c => {
         routes.push({
           url: `${SITE_URL}/contractors/${c.slug}`,
@@ -63,6 +64,48 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           priority: 0.8,
         })
       })
+
+      // ── City pages derived from contractors table ──────────────────
+      // Build unique city/state combinations from actual contractor data
+      const cityStateMap = new Map<string, { city: string; stateAbbr: string }>()
+
+      for (const c of contractors) {
+        if (c.city && c.state) {
+          const key = `${c.city.toLowerCase()}|${c.state.toLowerCase()}`
+          if (!cityStateMap.has(key)) {
+            cityStateMap.set(key, { city: c.city, stateAbbr: c.state })
+          }
+        }
+      }
+
+      for (const { city, stateAbbr } of cityStateMap.values()) {
+        // Find the full state name to build the state slug
+        const stateObj = US_STATES.find(
+          s => s.abbr.toLowerCase() === stateAbbr.toLowerCase()
+        )
+        if (!stateObj) continue
+
+        const stateSlug = stateObj.name.toLowerCase().replace(/\s+/g, '-')
+        const citySlug = city.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+
+        // City page
+        routes.push({
+          url: `${SITE_URL}/${stateSlug}/${citySlug}`,
+          lastModified: new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.7,
+        })
+
+        // City + service pages
+        HVAC_SERVICES.forEach(service => {
+          routes.push({
+            url: `${SITE_URL}/${stateSlug}/${citySlug}/${service.slug}`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly',
+            priority: 0.65,
+          })
+        })
+      }
     }
 
     // Blog posts
@@ -88,35 +131,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           lastModified: new Date(post.updated_at || post.published_at),
           changeFrequency: 'weekly',
           priority: 0.6,
-        })
-      })
-    }
-
-    // City pages from service_areas
-    const { data: serviceAreas } = await supabase
-      .from('service_areas')
-      .select('city, state, state_abbr')
-
-    if (serviceAreas) {
-      serviceAreas.forEach(area => {
-        const stateSlug = area.state.toLowerCase().replace(/\s+/g, '-')
-        const citySlug = area.city.toLowerCase().replace(/\s+/g, '-')
-
-        routes.push({
-          url: `${SITE_URL}/${stateSlug}/${citySlug}`,
-          lastModified: new Date(),
-          changeFrequency: 'weekly',
-          priority: 0.7,
-        })
-
-        // City + service pages
-        HVAC_SERVICES.forEach(service => {
-          routes.push({
-            url: `${SITE_URL}/${stateSlug}/${citySlug}/${service.slug}`,
-            lastModified: new Date(),
-            changeFrequency: 'weekly',
-            priority: 0.65,
-          })
         })
       })
     }

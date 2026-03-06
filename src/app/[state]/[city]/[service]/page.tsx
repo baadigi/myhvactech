@@ -1,12 +1,12 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronRight, Shield, Star, DollarSign, HelpCircle, Wrench, Clock, CheckCircle, Search } from 'lucide-react'
+import { ChevronRight, Shield, Star, DollarSign, HelpCircle, Clock, CheckCircle, Search } from 'lucide-react'
 import { US_STATES, HVAC_SERVICES, SITE_NAME, SITE_URL } from '@/lib/constants'
 import { ServiceSchema, FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
-import { MOCK_COMMERCIAL_FIELDS } from '@/lib/mockCommercialFields'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -33,167 +33,25 @@ function getServiceObj(serviceSlug: string) {
   return HVAC_SERVICES.find((s) => s.slug === serviceSlug) || null
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Data Fetching ───────────────────────────────────────────────────────────
 
-// Shared commercial field defaults for mock contractors
-const MOCK_COMMERCIAL_DEFAULTS = {
-  years_commercial_experience: 12 as number | null,
-  commercial_verified: true,
-  system_types: ['rtu', 'split_system'] as string[],
-  brands_serviced: ['Carrier', 'Trane'] as string[],
-  tonnage_range_min: 5 as number | null,
-  tonnage_range_max: 200 as number | null,
-  building_types_served: ['office', 'retail'] as string[],
-  emergency_response_minutes: 90 as number | null,
-  offers_24_7: true,
-  sla_summary: null as string | null,
-  multi_site_coverage: false,
-  max_sites_supported: null as number | null,
-  offers_service_agreements: true,
-  service_agreement_types: ['preventive_maintenance'] as string[],
-  dispatch_crm: null as string | null,
-  avg_quote_turnaround_hours: 8 as number | null,
-  uses_gps_tracking: false,
-  num_technicians: null as number | null,
-  num_nate_certified: null as number | null,
-  metro_area: null as string | null,
-  slot_tier: null as 'standard' | 'preferred' | 'exclusive' | null,
-}
+async function getContractorsForCityService(city: string, stateAbbr: string): Promise<Contractor[]> {
+  const db = createAdminClient()
 
-function getMockContractors(city: string, stateAbbr: string, serviceName: string): Contractor[] {
-  return [
-    {
-      ...MOCK_COMMERCIAL_DEFAULTS,
-      id: 'svc-c1',
-      created_at: '2020-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-      owner_id: null,
-      company_name: `${city} ${serviceName} Specialists`,
-      slug: `${city.toLowerCase().replace(/\s+/g, '-')}-hvac-specialists`,
-      description: null,
-      short_description: `Certified ${serviceName.toLowerCase()} for commercial properties in ${city}. Fast response, competitive pricing, and guaranteed workmanship.`,
-      logo_url: null,
-      cover_image_url: null,
-      website: null,
-      phone: '5555550611',
-      email: null,
-      street_address: '700 Tech Center Blvd',
-      city,
-      state: stateAbbr,
-      zip_code: '00200',
-      country: 'US',
-      location: null,
-      service_radius_miles: 45,
-      year_established: 2008,
-      license_number: null,
-      insurance_verified: true,
-      is_verified: true,
-      is_claimed: true,
-      is_featured: true,
-      operating_hours: null,
-      subscription_tier: 'gold',
-      stripe_customer_id: null,
-      stripe_subscription_id: null,
-      subscription_status: 'active',
-      meta_title: null,
-      meta_description: null,
-      avg_rating: 4.9,
-      review_count: 58,
-      profile_views: 2400,
-      services: [
-        { id: 'svc1', name: serviceName, slug: HVAC_SERVICES.find(s => s.name === serviceName)?.slug || 'hvac-service', category: 'Repair', description: null, icon: null },
-        { id: 'svc2', name: 'Preventive Maintenance Plans', slug: 'preventive-maintenance-plans', category: 'Maintenance', description: null, icon: null },
-      ],
-    },
-    {
-      ...MOCK_COMMERCIAL_DEFAULTS,
-      commercial_verified: true,
-      id: 'svc-c2',
-      created_at: '2017-04-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-      owner_id: null,
-      company_name: `AllCity Mechanical`,
-      slug: `allcity-mechanical-${city.toLowerCase().replace(/\s+/g, '-')}`,
-      description: null,
-      short_description: `Full-service commercial HVAC including ${serviceName.toLowerCase()}. Serving ${city} area businesses with 15 years of experience.`,
-      logo_url: null,
-      cover_image_url: null,
-      website: null,
-      phone: '5555550722',
-      email: null,
-      street_address: '1500 Commerce Park',
-      city,
-      state: stateAbbr,
-      zip_code: '00201',
-      country: 'US',
-      location: null,
-      service_radius_miles: 55,
-      year_established: 2009,
-      license_number: null,
-      insurance_verified: true,
-      is_verified: true,
-      is_claimed: true,
-      is_featured: false,
-      operating_hours: null,
-      subscription_tier: 'silver',
-      stripe_customer_id: null,
-      stripe_subscription_id: null,
-      subscription_status: 'active',
-      meta_title: null,
-      meta_description: null,
-      avg_rating: 4.5,
-      review_count: 41,
-      profile_views: 1600,
-      services: [
-        { id: 'svc3', name: serviceName, slug: HVAC_SERVICES.find(s => s.name === serviceName)?.slug || 'hvac-service', category: 'Repair', description: null, icon: null },
-        { id: 'svc4', name: 'Commercial AC Repair', slug: 'commercial-ac-repair', category: 'Repair', description: null, icon: null },
-      ],
-    },
-    {
-      ...MOCK_COMMERCIAL_DEFAULTS,
-      commercial_verified: false,
-      offers_24_7: false,
-      id: 'svc-c3',
-      created_at: '2015-09-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-      owner_id: null,
-      company_name: `Reliable HVAC Services`,
-      slug: `reliable-hvac-services-${city.toLowerCase().replace(/\s+/g, '-')}`,
-      description: null,
-      short_description: `Affordable ${serviceName.toLowerCase()} for small and mid-size commercial properties. No hidden fees, upfront pricing.`,
-      logo_url: null,
-      cover_image_url: null,
-      website: null,
-      phone: '5555550833',
-      email: null,
-      street_address: '320 Midtown Ave',
-      city,
-      state: stateAbbr,
-      zip_code: '00202',
-      country: 'US',
-      location: null,
-      service_radius_miles: 30,
-      year_established: 2015,
-      license_number: null,
-      insurance_verified: false,
-      is_verified: false,
-      is_claimed: true,
-      is_featured: false,
-      operating_hours: null,
-      subscription_tier: 'free',
-      stripe_customer_id: null,
-      stripe_subscription_id: null,
-      subscription_status: 'inactive',
-      meta_title: null,
-      meta_description: null,
-      avg_rating: 4.1,
-      review_count: 22,
-      profile_views: 780,
-      services: [
-        { id: 'svc5', name: serviceName, slug: HVAC_SERVICES.find(s => s.name === serviceName)?.slug || 'hvac-service', category: 'Repair', description: null, icon: null },
-      ],
-    },
-  ]
+  // Fetch contractors in this city (service filtering would need a join on
+  // contractor_services, but since not all contractors have services linked yet,
+  // we show all city contractors on the service page — same as search behavior).
+  const { data } = await db
+    .from('contractors')
+    .select('*')
+    .ilike('city', city)
+    .ilike('state', stateAbbr)
+    .neq('subscription_status', 'cancelled')
+    .order('is_verified', { ascending: false })
+    .order('avg_rating', { ascending: false })
+    .limit(20)
+
+  return (data ?? []) as unknown as Contractor[]
 }
 
 // ─── Service Content ──────────────────────────────────────────────────────────
@@ -291,7 +149,7 @@ export default async function CityServicePage({ params }: Props) {
 
   if (!stateObj || !serviceObj) notFound()
 
-  const contractors = getMockContractors(cityName, stateObj.abbr, serviceObj.name)
+  const contractors = await getContractorsForCityService(cityName, stateObj.abbr)
   const whatToExpect = getWhatToExpect(service)
   const faq = getFAQ(serviceObj.name, cityName, stateObj.abbr)
   const serviceDescription = SERVICE_DESCRIPTIONS[service] || `${serviceObj.name} is an essential commercial building service. Licensed contractors provide expert diagnosis, repair, installation, and maintenance.`
@@ -352,11 +210,29 @@ export default async function CityServicePage({ params }: Props) {
           <h2 className="text-xl font-semibold text-neutral-900 mb-5">
             Top {serviceObj.name} Contractors in {cityName}
           </h2>
-          <div className="space-y-3">
-            {contractors.map((c) => (
-              <ContractorCard key={c.id} contractor={c} />
-            ))}
-          </div>
+
+          {contractors.length > 0 ? (
+            <div className="space-y-3">
+              {contractors.map((c) => (
+                <ContractorCard key={c.id} contractor={c} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white border border-neutral-200 rounded-xl">
+              <Search size={32} className="mx-auto text-neutral-300 mb-3" aria-hidden="true" />
+              <p className="text-neutral-600 font-medium mb-1">No contractors listed in {cityName} yet</p>
+              <p className="text-sm text-neutral-400 mb-4">
+                We&apos;re expanding our coverage. Check back soon or search nearby cities.
+              </p>
+              <Link
+                href={`/search?state=${stateObj.abbr}`}
+                className="inline-flex items-center gap-2 bg-primary-500 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-primary-600 transition-colors"
+              >
+                <Search size={14} aria-hidden="true" />
+                Search all {stateObj.name} contractors
+              </Link>
+            </div>
+          )}
         </section>
 
         {/* ── What to Expect ───────────────────────────────────────────── */}

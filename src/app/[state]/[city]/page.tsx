@@ -6,6 +6,7 @@ import { US_STATES, HVAC_SERVICES, SITE_NAME, SITE_URL } from '@/lib/constants'
 import { FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -28,180 +29,45 @@ function getStateObj(stateSlug: string) {
   ) || null
 }
 
-// ─── Mock Contractors ─────────────────────────────────────────────────────────
+// ─── Data Fetching ───────────────────────────────────────────────────────────
 
-// Shared commercial field defaults for mock contractors
-const MOCK_COMMERCIAL_DEFAULTS = {
-  years_commercial_experience: 12 as number | null,
-  commercial_verified: true,
-  system_types: ['rtu', 'split_system'] as string[],
-  brands_serviced: ['Carrier', 'Trane'] as string[],
-  tonnage_range_min: 5 as number | null,
-  tonnage_range_max: 200 as number | null,
-  building_types_served: ['office', 'retail'] as string[],
-  emergency_response_minutes: 90 as number | null,
-  offers_24_7: true,
-  sla_summary: null as string | null,
-  multi_site_coverage: false,
-  max_sites_supported: null as number | null,
-  offers_service_agreements: true,
-  service_agreement_types: ['preventive_maintenance'] as string[],
-  dispatch_crm: null as string | null,
-  avg_quote_turnaround_hours: 8 as number | null,
-  uses_gps_tracking: false,
-  num_technicians: null as number | null,
-  num_nate_certified: null as number | null,
-  metro_area: null as string | null,
-  slot_tier: null as 'standard' | 'preferred' | 'exclusive' | null,
+async function getContractorsForCity(city: string, stateAbbr: string): Promise<Contractor[]> {
+  const db = createAdminClient()
+
+  const { data } = await db
+    .from('contractors')
+    .select('*')
+    .ilike('city', city)
+    .ilike('state', stateAbbr)
+    .neq('subscription_status', 'cancelled')
+    .order('is_verified', { ascending: false })
+    .order('avg_rating', { ascending: false })
+    .limit(20)
+
+  return (data ?? []) as unknown as Contractor[]
 }
 
-function getMockContractors(city: string, stateAbbr: string): Contractor[] {
-  return [
-    {
-      ...MOCK_COMMERCIAL_DEFAULTS,
-      id: 'city-c1',
-      created_at: '2021-03-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-      owner_id: null,
-      company_name: `${city} Commercial HVAC Pros`,
-      slug: `${city.toLowerCase().replace(/\s+/g, '-')}-commercial-hvac-pros`,
-      description: null,
-      short_description: `${city}'s most trusted commercial HVAC company. Serving office buildings, retail, and industrial facilities since 2005.`,
-      logo_url: null,
-      cover_image_url: null,
-      website: null,
-      phone: '5555550311',
-      email: null,
-      street_address: '500 Business Park Dr',
-      city,
-      state: stateAbbr,
-      zip_code: '00100',
-      country: 'US',
-      location: null,
-      service_radius_miles: 50,
-      year_established: 2005,
-      license_number: null,
-      insurance_verified: true,
-      is_verified: true,
-      is_claimed: true,
-      is_featured: true,
-      operating_hours: null,
-      subscription_tier: 'gold',
-      stripe_customer_id: null,
-      stripe_subscription_id: null,
-      subscription_status: 'active',
-      meta_title: null,
-      meta_description: null,
-      avg_rating: 4.8,
-      review_count: 76,
-      profile_views: 3200,
-      services: [
-        { id: '1', name: 'Commercial AC Repair', slug: 'commercial-ac-repair', category: 'Repair', description: null, icon: null },
-        { id: '2', name: 'Rooftop Unit (RTU) Service', slug: 'rooftop-unit-service', category: 'Maintenance', description: null, icon: null },
-        { id: '3', name: 'Emergency HVAC Service', slug: 'emergency-hvac-service', category: 'Emergency', description: null, icon: null },
-        { id: '4', name: 'Preventive Maintenance Plans', slug: 'preventive-maintenance-plans', category: 'Maintenance', description: null, icon: null },
-      ],
-    },
-    {
-      ...MOCK_COMMERCIAL_DEFAULTS,
-      id: 'city-c2',
-      created_at: '2018-08-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-      owner_id: null,
-      company_name: `Metro Climate Solutions`,
-      slug: `metro-climate-solutions-${city.toLowerCase().replace(/\s+/g, '-')}`,
-      description: null,
-      short_description: `Full-service commercial HVAC for ${city} area businesses. Specializing in chiller plants, BAS integration, and energy efficiency.`,
-      logo_url: null,
-      cover_image_url: null,
-      website: null,
-      phone: '5555550422',
-      email: null,
-      street_address: '1200 Industrial Way',
-      city,
-      state: stateAbbr,
-      zip_code: '00101',
-      country: 'US',
-      location: null,
-      service_radius_miles: 40,
-      year_established: 2010,
-      license_number: null,
-      insurance_verified: true,
-      is_verified: true,
-      is_claimed: true,
-      is_featured: false,
-      operating_hours: null,
-      subscription_tier: 'silver',
-      stripe_customer_id: null,
-      stripe_subscription_id: null,
-      subscription_status: 'active',
-      meta_title: null,
-      meta_description: null,
-      avg_rating: 4.6,
-      review_count: 43,
-      profile_views: 1800,
-      services: [
-        { id: '5', name: 'Chiller Repair & Maintenance', slug: 'chiller-repair-maintenance', category: 'Maintenance', description: null, icon: null },
-        { id: '6', name: 'Building Automation Systems', slug: 'building-automation-systems', category: 'Installation', description: null, icon: null },
-        { id: '7', name: 'Energy Audits & Retrofits', slug: 'energy-audits-retrofits', category: 'Maintenance', description: null, icon: null },
-      ],
-    },
-    {
-      ...MOCK_COMMERCIAL_DEFAULTS,
-      commercial_verified: false,
-      id: 'city-c3',
-      created_at: '2016-05-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-      owner_id: null,
-      company_name: `Allied Mechanical Services`,
-      slug: `allied-mechanical-services-${city.toLowerCase().replace(/\s+/g, '-')}`,
-      description: null,
-      short_description: `Value-priced commercial HVAC with no compromises on quality. Great for small to mid-size commercial properties in ${city}.`,
-      logo_url: null,
-      cover_image_url: null,
-      website: null,
-      phone: '5555550533',
-      email: null,
-      street_address: '88 Commerce St',
-      city,
-      state: stateAbbr,
-      zip_code: '00102',
-      country: 'US',
-      location: null,
-      service_radius_miles: 30,
-      year_established: 2016,
-      license_number: null,
-      insurance_verified: false,
-      is_verified: false,
-      is_claimed: true,
-      is_featured: false,
-      operating_hours: null,
-      subscription_tier: 'bronze',
-      stripe_customer_id: null,
-      stripe_subscription_id: null,
-      subscription_status: 'active',
-      meta_title: null,
-      meta_description: null,
-      avg_rating: 4.2,
-      review_count: 31,
-      profile_views: 1100,
-      services: [
-        { id: '1', name: 'Commercial AC Repair', slug: 'commercial-ac-repair', category: 'Repair', description: null, icon: null },
-        { id: '8', name: 'Commercial Heating Repair', slug: 'commercial-heating-repair', category: 'Repair', description: null, icon: null },
-      ],
-    },
-  ]
-}
+async function getNearbyCities(city: string, stateAbbr: string): Promise<string[]> {
+  const db = createAdminClient()
 
-// ─── Nearby Cities ────────────────────────────────────────────────────────────
+  const { data } = await db
+    .from('contractors')
+    .select('city')
+    .ilike('state', stateAbbr)
+    .neq('subscription_status', 'cancelled')
 
-const NEARBY_CITY_MAP: Record<string, string[]> = {
-  'phoenix': ['scottsdale', 'tempe', 'mesa', 'chandler', 'gilbert'],
-  'los-angeles': ['santa-monica', 'burbank', 'pasadena', 'long-beach', 'torrance'],
-  'chicago': ['evanston', 'oak-park', 'cicero', 'berwyn', 'schaumburg'],
-  'houston': ['sugar-land', 'pearland', 'pasadena', 'katy', 'the-woodlands'],
-  'dallas': ['fort-worth', 'irving', 'plano', 'garland', 'arlington'],
-  'miami': ['miami-beach', 'hialeah', 'coral-gables', 'doral', 'homestead'],
+  if (!data) return []
+
+  // Get unique city names that aren't the current city
+  const citySet = new Set<string>()
+  for (const row of data) {
+    if (row.city && row.city.toLowerCase() !== city.toLowerCase()) {
+      citySet.add(row.city)
+    }
+  }
+
+  // Return up to 8 nearby cities, sorted alphabetically
+  return Array.from(citySet).sort().slice(0, 8)
 }
 
 // ─── Static Params ────────────────────────────────────────────────────────────
@@ -259,9 +125,13 @@ export default async function CityPage({ params }: Props) {
   const stateObj = getStateObj(state)
   if (!stateObj) notFound()
 
-  const contractors = getMockContractors(cityName, stateObj.abbr)
+  const [contractors, nearbyCities] = await Promise.all([
+    getContractorsForCity(cityName, stateObj.abbr),
+    getNearbyCities(cityName, stateObj.abbr),
+  ])
+
   const faq = getFAQ(cityName, stateObj.abbr)
-  const nearbyCities = NEARBY_CITY_MAP[city] || []
+  const contractorCount = contractors.length
 
   return (
     <main className="min-h-screen bg-neutral-50">
@@ -286,12 +156,12 @@ export default async function CityPage({ params }: Props) {
             Best Commercial HVAC Contractors in {cityName}, {stateObj.abbr}
           </h1>
           <p className="text-lg text-neutral-600 max-w-3xl leading-relaxed">
-            Compare {cityName}'s top commercial HVAC companies. Read verified reviews from property managers and facility directors, request free quotes, and hire the right contractor for your building.
+            Compare {cityName}&apos;s top commercial HVAC companies. Read verified reviews from property managers and facility directors, request free quotes, and hire the right contractor for your building.
           </p>
           <div className="flex flex-wrap gap-3 mt-5 text-sm text-neutral-600">
             <span className="flex items-center gap-1.5">
               <Star size={14} className="text-warning" aria-hidden="true" />
-              {contractors.length}+ verified contractors
+              {contractorCount} verified contractor{contractorCount !== 1 ? 's' : ''}
             </span>
             <span className="flex items-center gap-1.5">
               <Shield size={14} className="text-accent-500" aria-hidden="true" />
@@ -320,11 +190,29 @@ export default async function CityPage({ params }: Props) {
               View all <ChevronRight size={14} aria-hidden="true" />
             </Link>
           </div>
-          <div className="space-y-3">
-            {contractors.map((c) => (
-              <ContractorCard key={c.id} contractor={c} />
-            ))}
-          </div>
+
+          {contractorCount > 0 ? (
+            <div className="space-y-3">
+              {contractors.map((c) => (
+                <ContractorCard key={c.id} contractor={c} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white border border-neutral-200 rounded-xl">
+              <Search size={32} className="mx-auto text-neutral-300 mb-3" aria-hidden="true" />
+              <p className="text-neutral-600 font-medium mb-1">No contractors listed in {cityName} yet</p>
+              <p className="text-sm text-neutral-400 mb-4">
+                We&apos;re expanding our coverage. Check back soon or search nearby cities.
+              </p>
+              <Link
+                href={`/search?state=${stateObj.abbr}`}
+                className="inline-flex items-center gap-2 bg-primary-500 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-primary-600 transition-colors"
+              >
+                <Search size={14} aria-hidden="true" />
+                Search all {stateObj.name} contractors
+              </Link>
+            </div>
+          )}
         </section>
 
         {/* ── Services in City ─────────────────────────────────────────── */}
@@ -374,15 +262,18 @@ export default async function CityPage({ params }: Props) {
               Nearby Cities
             </h2>
             <div className="flex flex-wrap gap-2">
-              {nearbyCities.map((nearbyCity) => (
-                <Link
-                  key={nearbyCity}
-                  href={`/${state}/${nearbyCity}`}
-                  className="px-4 py-2 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-700 hover:border-primary-300 hover:text-primary-700 transition-colors"
-                >
-                  {formatCityName(nearbyCity)}, {stateObj.abbr}
-                </Link>
-              ))}
+              {nearbyCities.map((nearbyCity) => {
+                const nearbySlug = nearbyCity.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+                return (
+                  <Link
+                    key={nearbyCity}
+                    href={`/${state}/${nearbySlug}`}
+                    className="px-4 py-2 bg-white border border-neutral-200 rounded-lg text-sm text-neutral-700 hover:border-primary-300 hover:text-primary-700 transition-colors"
+                  >
+                    {nearbyCity}, {stateObj.abbr}
+                  </Link>
+                )
+              })}
             </div>
           </section>
         )}

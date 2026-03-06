@@ -6,6 +6,7 @@ import { US_STATES, HVAC_SERVICES, SITE_NAME, SITE_URL } from '@/lib/constants'
 import { FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -21,144 +22,46 @@ function getStateData(stateSlug: string) {
   ) || null
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+// ─── Data Fetching ───────────────────────────────────────────────────────────
 
-// Shared commercial field defaults for mock contractors
-const MOCK_COMMERCIAL_DEFAULTS = {
-  years_commercial_experience: 12 as number | null,
-  commercial_verified: true,
-  system_types: ['rtu', 'split_system'] as string[],
-  brands_serviced: ['Carrier', 'Trane'] as string[],
-  tonnage_range_min: 5 as number | null,
-  tonnage_range_max: 200 as number | null,
-  building_types_served: ['office', 'retail'] as string[],
-  emergency_response_minutes: 90 as number | null,
-  offers_24_7: true,
-  sla_summary: null as string | null,
-  multi_site_coverage: false,
-  max_sites_supported: null as number | null,
-  offers_service_agreements: true,
-  service_agreement_types: ['preventive_maintenance'] as string[],
-  dispatch_crm: null as string | null,
-  avg_quote_turnaround_hours: 8 as number | null,
-  uses_gps_tracking: false,
-  num_technicians: null as number | null,
-  num_nate_certified: null as number | null,
-  metro_area: null as string | null,
-  slot_tier: null as 'standard' | 'preferred' | 'exclusive' | null,
+async function getCitiesForState(stateAbbr: string): Promise<string[]> {
+  const db = createAdminClient()
+
+  const { data } = await db
+    .from('contractors')
+    .select('city')
+    .ilike('state', stateAbbr)
+    .neq('subscription_status', 'cancelled')
+
+  if (!data) return []
+
+  // Deduplicate city names (case-insensitive) and return sorted
+  const cityMap = new Map<string, string>()
+  for (const row of data) {
+    if (row.city) {
+      const key = row.city.toLowerCase()
+      if (!cityMap.has(key)) {
+        cityMap.set(key, row.city)
+      }
+    }
+  }
+
+  return Array.from(cityMap.values()).sort()
 }
 
-function getMockContractors(stateName: string): Contractor[] {
-  const cities = STATE_CITIES[stateName as keyof typeof STATE_CITIES] || ['City A', 'City B']
-  return [
-    {
-      ...MOCK_COMMERCIAL_DEFAULTS,
-      id: 'mock-s1',
-      created_at: '2022-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-      owner_id: null,
-      company_name: `${stateName} Commercial HVAC Group`,
-      slug: `${stateName.toLowerCase().replace(/\s+/g, '-')}-commercial-hvac-group`,
-      description: null,
-      short_description: `Top-rated commercial HVAC contractor serving all of ${stateName}. Full-service installation, repair, and maintenance.`,
-      logo_url: null,
-      cover_image_url: null,
-      website: null,
-      phone: '5555550100',
-      email: null,
-      street_address: '100 Main St',
-      city: cities[0],
-      state: US_STATES.find(s => s.name === stateName)?.abbr || '',
-      zip_code: '00000',
-      country: 'US',
-      location: null,
-      service_radius_miles: 150,
-      year_established: 2005,
-      license_number: null,
-      insurance_verified: true,
-      is_verified: true,
-      is_claimed: true,
-      is_featured: true,
-      operating_hours: null,
-      subscription_tier: 'gold',
-      stripe_customer_id: null,
-      stripe_subscription_id: null,
-      subscription_status: 'active',
-      meta_title: null,
-      meta_description: null,
-      avg_rating: 4.7,
-      review_count: 98,
-      profile_views: 5000,
-      services: [
-        { id: '1', name: 'Commercial AC Repair', slug: 'commercial-ac-repair', category: 'Repair', description: null, icon: null },
-        { id: '2', name: 'Rooftop Unit (RTU) Service', slug: 'rooftop-unit-service', category: 'Maintenance', description: null, icon: null },
-        { id: '3', name: 'Emergency HVAC Service', slug: 'emergency-hvac-service', category: 'Emergency', description: null, icon: null },
-      ],
-    },
-    {
-      ...MOCK_COMMERCIAL_DEFAULTS,
-      id: 'mock-s2',
-      created_at: '2019-06-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-      owner_id: null,
-      company_name: `Precision Climate Services`,
-      slug: `precision-climate-services-${stateName.toLowerCase().replace(/\s+/g, '-')}`,
-      description: null,
-      short_description: `Precision commercial HVAC solutions for healthcare, retail, and office buildings across ${stateName}.`,
-      logo_url: null,
-      cover_image_url: null,
-      website: null,
-      phone: '5555550201',
-      email: null,
-      street_address: '200 Commerce Blvd',
-      city: cities[1] || cities[0],
-      state: US_STATES.find(s => s.name === stateName)?.abbr || '',
-      zip_code: '00001',
-      country: 'US',
-      location: null,
-      service_radius_miles: 100,
-      year_established: 2012,
-      license_number: null,
-      insurance_verified: true,
-      is_verified: true,
-      is_claimed: true,
-      is_featured: false,
-      operating_hours: null,
-      subscription_tier: 'silver',
-      stripe_customer_id: null,
-      stripe_subscription_id: null,
-      subscription_status: 'active',
-      meta_title: null,
-      meta_description: null,
-      avg_rating: 4.5,
-      review_count: 62,
-      profile_views: 2800,
-      services: [
-        { id: '4', name: 'Chiller Repair & Maintenance', slug: 'chiller-repair-maintenance', category: 'Maintenance', description: null, icon: null },
-        { id: '5', name: 'Building Automation Systems', slug: 'building-automation-systems', category: 'Installation', description: null, icon: null },
-      ],
-    },
-  ]
-}
+async function getFeaturedContractors(stateAbbr: string): Promise<Contractor[]> {
+  const db = createAdminClient()
 
-const STATE_CITIES: Record<string, string[]> = {
-  'Arizona': ['Phoenix', 'Tucson', 'Mesa', 'Scottsdale', 'Chandler', 'Gilbert', 'Glendale', 'Tempe'],
-  'California': ['Los Angeles', 'San Francisco', 'San Diego', 'San Jose', 'Sacramento', 'Oakland', 'Fresno', 'Riverside'],
-  'Texas': ['Houston', 'Dallas', 'San Antonio', 'Austin', 'Fort Worth', 'El Paso', 'Arlington', 'Corpus Christi'],
-  'Florida': ['Miami', 'Orlando', 'Tampa', 'Jacksonville', 'St. Petersburg', 'Hialeah', 'Port St. Lucie', 'Fort Lauderdale'],
-  'New York': ['New York City', 'Buffalo', 'Rochester', 'Yonkers', 'Syracuse', 'Albany', 'New Rochelle', 'Mount Vernon'],
-  'Illinois': ['Chicago', 'Aurora', 'Naperville', 'Joliet', 'Rockford', 'Elgin', 'Springfield', 'Peoria'],
-  'Pennsylvania': ['Philadelphia', 'Pittsburgh', 'Allentown', 'Erie', 'Reading', 'Scranton', 'Bethlehem', 'Lancaster'],
-  'Ohio': ['Columbus', 'Cleveland', 'Cincinnati', 'Toledo', 'Akron', 'Dayton', 'Parma', 'Canton'],
-  'Georgia': ['Atlanta', 'Augusta', 'Columbus', 'Macon', 'Savannah', 'Athens', 'Sandy Springs', 'Roswell'],
-  'North Carolina': ['Charlotte', 'Raleigh', 'Greensboro', 'Durham', 'Winston-Salem', 'Fayetteville', 'Cary', 'Wilmington'],
-}
+  const { data } = await db
+    .from('contractors')
+    .select('*')
+    .ilike('state', stateAbbr)
+    .neq('subscription_status', 'cancelled')
+    .order('is_verified', { ascending: false })
+    .order('avg_rating', { ascending: false })
+    .limit(6)
 
-function getCitiesForState(stateName: string): string[] {
-  return STATE_CITIES[stateName as keyof typeof STATE_CITIES] || [
-    'Downtown', 'Northside', 'Westfield', 'Eastview', 'Southgate',
-    'Midtown', 'Central Park', 'Harbor View',
-  ]
+  return (data ?? []) as unknown as Contractor[]
 }
 
 // ─── Static Params ────────────────────────────────────────────────────────────
@@ -216,8 +119,11 @@ export default async function StatePage({ params }: Props) {
   const stateObj = getStateData(state)
   if (!stateObj) notFound()
 
-  const cities = getCitiesForState(stateObj.name)
-  const contractors = getMockContractors(stateObj.name)
+  const [cities, contractors] = await Promise.all([
+    getCitiesForState(stateObj.abbr),
+    getFeaturedContractors(stateObj.abbr),
+  ])
+
   const faq = getFAQ(stateObj.name, stateObj.abbr)
   const serviceCategories = [
     { name: 'Repair', services: HVAC_SERVICES.filter(s => s.category === 'Repair') },
@@ -225,6 +131,11 @@ export default async function StatePage({ params }: Props) {
     { name: 'Maintenance', services: HVAC_SERVICES.filter(s => s.category === 'Maintenance') },
     { name: 'Emergency', services: HVAC_SERVICES.filter(s => s.category === 'Emergency') },
   ]
+
+  // Pick a default city slug for service links
+  const defaultCitySlug = cities[0]
+    ? cities[0].toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    : ''
 
   return (
     <main className="min-h-screen bg-neutral-50">
@@ -246,7 +157,7 @@ export default async function StatePage({ params }: Props) {
             Commercial HVAC Contractors in {stateObj.name}
           </h1>
           <p className="text-lg text-neutral-600 max-w-3xl leading-relaxed">
-            Browse {stateObj.name}'s top-rated commercial HVAC companies. Whether you manage a single office building or a portfolio of industrial facilities, My HVAC Tech connects you with licensed, insured contractors who specialize in commercial systems.
+            Browse {stateObj.name}&apos;s top-rated commercial HVAC companies. Whether you manage a single office building or a portfolio of industrial facilities, My HVAC Tech connects you with licensed, insured contractors who specialize in commercial systems.
           </p>
           <div className="flex flex-wrap gap-4 mt-6 text-sm text-neutral-600">
             <span className="flex items-center gap-1.5">
@@ -255,7 +166,7 @@ export default async function StatePage({ params }: Props) {
             </span>
             <span className="flex items-center gap-1.5">
               <Shield size={14} className="text-accent-500" aria-hidden="true" />
-              License & insurance checked
+              License &amp; insurance checked
             </span>
             <span className="flex items-center gap-1.5">
               <MapPin size={14} className="text-primary-500" aria-hidden="true" />
@@ -268,26 +179,28 @@ export default async function StatePage({ params }: Props) {
       <div className="max-w-5xl mx-auto px-4 py-10">
 
         {/* ── Cities Grid ───────────────────────────────────────────────── */}
-        <section className="mb-12">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-5">
-            Browse by City in {stateObj.name}
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {cities.map((city) => {
-              const citySlug = city.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-              return (
-                <Link
-                  key={city}
-                  href={`/${state}/${citySlug}`}
-                  className="flex items-center gap-2 bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 hover:bg-primary-50 transition-all group"
-                >
-                  <MapPin size={13} className="text-neutral-400 group-hover:text-primary-500 shrink-0" aria-hidden="true" />
-                  {city}
-                </Link>
-              )
-            })}
-          </div>
-        </section>
+        {cities.length > 0 && (
+          <section className="mb-12">
+            <h2 className="text-xl font-semibold text-neutral-900 mb-5">
+              Browse by City in {stateObj.name}
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {cities.map((city) => {
+                const citySlug = city.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+                return (
+                  <Link
+                    key={city}
+                    href={`/${state}/${citySlug}`}
+                    className="flex items-center gap-2 bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 hover:bg-primary-50 transition-all group"
+                  >
+                    <MapPin size={13} className="text-neutral-400 group-hover:text-primary-500 shrink-0" aria-hidden="true" />
+                    {city}
+                  </Link>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         {/* ── Featured Contractors ────────────────────────────────────── */}
         <section className="mb-12">
@@ -302,47 +215,61 @@ export default async function StatePage({ params }: Props) {
               View all <ChevronRight size={14} aria-hidden="true" />
             </Link>
           </div>
-          <div className="space-y-3">
-            {contractors.map((contractor) => (
-              <ContractorCard key={contractor.id} contractor={contractor} />
-            ))}
-          </div>
-          <div className="mt-4 text-center">
-            <Link
-              href={`/search?state=${stateObj.abbr}`}
-              className="inline-flex items-center gap-2 bg-primary-500 text-white font-medium text-sm px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
-            >
-              <Search size={15} aria-hidden="true" />
-              Search All {stateObj.name} Contractors
-            </Link>
-          </div>
+
+          {contractors.length > 0 ? (
+            <div className="space-y-3">
+              {contractors.map((contractor) => (
+                <ContractorCard key={contractor.id} contractor={contractor} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white border border-neutral-200 rounded-xl">
+              <Search size={32} className="mx-auto text-neutral-300 mb-3" aria-hidden="true" />
+              <p className="text-neutral-600 font-medium mb-1">No contractors listed in {stateObj.name} yet</p>
+              <p className="text-sm text-neutral-400">We&apos;re expanding our coverage. Check back soon.</p>
+            </div>
+          )}
+
+          {contractors.length > 0 && (
+            <div className="mt-4 text-center">
+              <Link
+                href={`/search?state=${stateObj.abbr}`}
+                className="inline-flex items-center gap-2 bg-primary-500 text-white font-medium text-sm px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors"
+              >
+                <Search size={15} aria-hidden="true" />
+                Search All {stateObj.name} Contractors
+              </Link>
+            </div>
+          )}
         </section>
 
         {/* ── Services in State ────────────────────────────────────────── */}
-        <section className="mb-12">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-5">
-            Commercial HVAC Services in {stateObj.name}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {serviceCategories.map(({ name, services }) => (
-              <div key={name}>
-                <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-2">{name}</h3>
-                <div className="space-y-1">
-                  {services.map((svc) => (
-                    <Link
-                      key={svc.slug}
-                      href={`/${state}/${cities[0]?.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}/${svc.slug}`}
-                      className="flex items-center gap-2 text-sm text-neutral-700 hover:text-primary-600 py-1 transition-colors"
-                    >
-                      <ChevronRight size={12} className="text-neutral-300 shrink-0" aria-hidden="true" />
-                      {svc.name} in {stateObj.name}
-                    </Link>
-                  ))}
+        {defaultCitySlug && (
+          <section className="mb-12">
+            <h2 className="text-xl font-semibold text-neutral-900 mb-5">
+              Commercial HVAC Services in {stateObj.name}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {serviceCategories.map(({ name, services }) => (
+                <div key={name}>
+                  <h3 className="text-sm font-semibold text-neutral-500 uppercase tracking-wide mb-2">{name}</h3>
+                  <div className="space-y-1">
+                    {services.map((svc) => (
+                      <Link
+                        key={svc.slug}
+                        href={`/${state}/${defaultCitySlug}/${svc.slug}`}
+                        className="flex items-center gap-2 text-sm text-neutral-700 hover:text-primary-600 py-1 transition-colors"
+                      >
+                        <ChevronRight size={12} className="text-neutral-300 shrink-0" aria-hidden="true" />
+                        {svc.name} in {stateObj.name}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── FAQ ─────────────────────────────────────────────────────────── */}
         <section>
