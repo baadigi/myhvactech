@@ -247,7 +247,7 @@ async function generateWithClaude(
   companyName: string,
   websiteText: string | null,
   seoKeywords: string[] = []
-): Promise<{ full: string; short: string }> {
+): Promise<{ full: string; short: string; meta: string }> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY not configured')
@@ -266,8 +266,8 @@ Your writing must:
 - Weave in relevant SEO keywords naturally: commercial HVAC, the city/metro area, specific system types and building types the company handles
 - Emphasize what a facility manager actually cares about: response times, system expertise, track record, scale of projects, coverage area, certifications
 - Highlight concrete differentiators from residential directories (Angi, HomeAdvisor): commercial-only focus, tonnage capacity, multi-building coverage, SLAs, emergency response guarantees
-- MINIMUM 150 words, TARGET 200–300 words — this is critical. Even with limited data, write at least 150 words by elaborating on location, services, and what facility managers should expect
-- If data is thin, expand on: the company's service area, typical commercial HVAC needs in that market, and what makes choosing a local contractor important for property managers
+- MINIMUM 200 words, TARGET 250–350 words — this is CRITICAL. Do not write fewer than 200 words under any circumstances
+- If data is thin, expand on: the company's service area, typical commercial HVAC needs in that metro market, seasonal HVAC challenges for the region, what building types are common in the area, and why local commercial HVAC expertise matters for facility managers
 - Open with the single most compelling fact about the company (e.g. "Since 1974..." or "Covering 92 commercial projects across DFW...")
 - Use short paragraphs (2–3 sentences max)
 - Include the city/metro in the first sentence
@@ -292,13 +292,16 @@ Instructions:
 - If website content reveals specifics not in the database (year founded, certifications, project types, client testimonials, specific services), incorporate those
 - If no website content is available and the database facts are thin, write a shorter but still useful description (~150 words) rather than padding with generic fluff
 
-Write both outputs now. Format your response EXACTLY like this (including the separator):
+Write ALL THREE outputs now. Format your response EXACTLY like this (including the separators):
 
 FULL_DESCRIPTION:
-[your 150-300 word description here]
+[your 200-350 word description here — MINIMUM 200 words, count carefully]
 
 SHORT_DESCRIPTION:
-[your 150-155 character SEO meta snippet here — must be under 155 characters, pack in city + top differentiator + CTA-worthy detail]`
+[exactly 150-160 characters for the contractor card — must include city and top differentiator. Count characters carefully.]
+
+META_DESCRIPTION:
+[exactly 150-160 characters for SEO meta tag — must include company name, city, and a call-to-action like "verified reviews" or "free quotes". Count characters carefully.]`
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -308,8 +311,8 @@ SHORT_DESCRIPTION:
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1500,
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
       system: systemPrompt,
       messages: [
         { role: 'user', content: userPrompt },
@@ -329,14 +332,16 @@ SHORT_DESCRIPTION:
     throw new Error('Claude returned empty response')
   }
 
-  // Parse out both descriptions
+  // Parse out all three descriptions
   const fullMatch = text.match(/FULL_DESCRIPTION:\s*\n([\s\S]*?)(?:\nSHORT_DESCRIPTION:|$)/)
-  const shortMatch = text.match(/SHORT_DESCRIPTION:\s*\n([\s\S]*?)$/)
+  const shortMatch = text.match(/SHORT_DESCRIPTION:\s*\n([\s\S]*?)(?:\nMETA_DESCRIPTION:|$)/)
+  const metaMatch = text.match(/META_DESCRIPTION:\s*\n([\s\S]*?)$/)
 
   const fullDesc = fullMatch ? fullMatch[1].trim() : text
   const shortDesc = shortMatch ? shortMatch[1].trim().slice(0, 160) : ''
+  const metaDesc = metaMatch ? metaMatch[1].trim().slice(0, 160) : shortDesc
 
-  return { full: fullDesc, short: shortDesc }
+  return { full: fullDesc, short: shortDesc, meta: metaDesc }
 }
 
 // Fallback template-based generation (no AI API needed)
@@ -465,6 +470,7 @@ export async function POST(request: NextRequest) {
 
     let description: string
     let shortDescription: string = ''
+    let metaDescription: string = ''
     let source: 'claude' | 'template'
 
     // Try Claude first, fall back to template
@@ -472,13 +478,14 @@ export async function POST(request: NextRequest) {
       const aiResult = await generateWithClaude(factSheet, c.company_name, websiteText, seoKeywords)
       description = aiResult.full
       shortDescription = aiResult.short
+      metaDescription = aiResult.meta
 
       // Check minimum length — retry once if too short
       const wordCount = description.split(/\s+/).length
-      if (wordCount < 100) {
+      if (wordCount < 150) {
         console.log(`First attempt too short (${wordCount} words), retrying with stronger prompt...`)
         const retryResult = await generateWithClaude(
-          factSheet + '\n\nIMPORTANT: Your previous attempt was only ' + wordCount + ' words. The MINIMUM is 150 words. Write a more comprehensive description covering the company\'s service area, capabilities, and value to facility managers.',
+          factSheet + '\n\nCRITICAL: Your previous attempt was only ' + wordCount + ' words. You MUST write at least 200 words. Expand on the local market, seasonal HVAC needs, building types in the area, and what makes this contractor relevant to facility managers.',
           c.company_name,
           websiteText,
           seoKeywords
@@ -486,6 +493,7 @@ export async function POST(request: NextRequest) {
         if (retryResult.full.split(/\s+/).length > wordCount) {
           description = retryResult.full
           shortDescription = retryResult.short
+          metaDescription = retryResult.meta
         }
       }
 
@@ -496,11 +504,25 @@ export async function POST(request: NextRequest) {
       source = 'template'
     }
 
+    // Ensure short_description fills 150+ chars
+    if (!shortDescription || shortDescription.length < 100) {
+      const rating = c.google_rating ? ` ${c.google_rating}★ rated.` : ''
+      shortDescription = `Commercial HVAC contractor in ${c.city}, ${c.state}.${rating} Verified reviews, free quotes.`.slice(0, 160)
+    }
+    // Ensure meta_description fills 150+ chars
+    if (!metaDescription || metaDescription.length < 100) {
+      metaDescription = `${c.company_name} — commercial HVAC contractor in ${c.city}, ${c.state}. Read verified reviews, compare services, and request free quotes.`.slice(0, 160)
+    }
+
     // Optionally save (only works with contractor_id)
     if (save && contractor_id) {
       const { error: updateError } = await db
         .from('contractors')
-        .update({ description, ...(shortDescription ? { short_description: shortDescription } : {}) })
+        .update({
+          description,
+          ...(shortDescription ? { short_description: shortDescription } : {}),
+          ...(metaDescription ? { meta_description: metaDescription } : {}),
+        })
         .eq('id', contractor_id)
 
       if (updateError) {
@@ -512,9 +534,12 @@ export async function POST(request: NextRequest) {
       success: true,
       description,
       short_description: shortDescription,
+      meta_description: metaDescription,
       source,
       saved: !!(save && contractor_id),
       word_count: description.split(/\s+/).length,
+      short_description_length: shortDescription.length,
+      meta_description_length: metaDescription.length,
       website_fetched: !!websiteText,
     })
   } catch (err) {

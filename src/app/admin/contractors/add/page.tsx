@@ -245,17 +245,22 @@ export default function AdminAddContractorPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  const [aiShortLoading, setAiShortLoading] = useState(false)
 
   const set = (field: keyof FormData, value: unknown) => {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  const generateAIDescription = async () => {
+  const generateAIDescription = async (target: 'all' | 'short' = 'all') => {
     if (!form.company_name.trim()) {
       setError('Enter a company name before generating a description')
       return
     }
-    setAiLoading(true)
+    if (target === 'short') {
+      setAiShortLoading(true)
+    } else {
+      setAiLoading(true)
+    }
     setError(null)
     try {
       const res = await fetch('/api/admin/generate-description', {
@@ -268,12 +273,20 @@ export default function AdminAddContractorPage() {
         setError(data.error || 'Failed to generate description')
         return
       }
-      set('description', data.description)
-      if (data.short_description) set('short_description', data.short_description)
+      if (target === 'short') {
+        if (data.short_description) set('short_description', data.short_description)
+      } else {
+        set('description', data.description)
+        if (data.short_description) set('short_description', data.short_description)
+      }
     } catch {
       setError('Failed to generate AI description')
     } finally {
-      setAiLoading(false)
+      if (target === 'short') {
+        setAiShortLoading(false)
+      } else {
+        setAiLoading(false)
+      }
     }
   }
 
@@ -545,9 +558,34 @@ export default function AdminAddContractorPage() {
           <SectionHeader title="Descriptions" />
           <div className="space-y-4">
             <div>
-              <label htmlFor="short_description" className="block text-sm font-medium text-neutral-700 mb-1">
-                Short Description <span className="text-neutral-400 font-normal">(max 160 chars)</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="short_description" className="block text-sm font-medium text-neutral-700">
+                  Short Description <span className="text-neutral-400 font-normal">(max 160 chars)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => generateAIDescription('short')}
+                  disabled={aiShortLoading || aiLoading}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-wait transition-all shadow-sm"
+                >
+                  {aiShortLoading ? (
+                    <>
+                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      Writing…
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 3l1.912 5.813L20 12l-6.088 3.187L12 21l-1.912-5.813L4 12l6.088-3.187z"/>
+                      </svg>
+                      Write with AI
+                    </>
+                  )}
+                </button>
+              </div>
               <input
                 id="short_description"
                 type="text"
@@ -564,8 +602,8 @@ export default function AdminAddContractorPage() {
                 <Label htmlFor="description">Full Description</Label>
                 <button
                   type="button"
-                  onClick={generateAIDescription}
-                  disabled={aiLoading}
+                  onClick={() => generateAIDescription('all')}
+                  disabled={aiLoading || aiShortLoading}
                   className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-wait transition-all shadow-sm"
                 >
                   {aiLoading ? (
