@@ -179,10 +179,74 @@ async function fetchWebsiteContent(url: string): Promise<string | null> {
   }
 }
 
+
+// Build SEO keywords from contractor data
+function buildSeoKeywords(c: ContractorRow): string[] {
+  const kw: string[] = []
+
+  // Location keywords
+  kw.push(`commercial HVAC ${c.city}`)
+  kw.push(`HVAC contractor ${c.city} ${c.state}`)
+  if (c.google_formatted_address) {
+    // Extract metro if available
+    const parts = c.google_formatted_address.split(',').map((p: string) => p.trim())
+    if (parts.length >= 2) kw.push(`HVAC service ${parts[0]}`)
+  }
+
+  // System-specific keywords
+  const systemKwMap: Record<string, string[]> = {
+    rtu: ['rooftop unit repair', 'RTU maintenance', 'commercial rooftop HVAC'],
+    split_system: ['commercial split system', 'split system installation'],
+    chilled_water: ['chiller repair', 'chilled water system', 'commercial chiller service'],
+    vrf: ['VRF installation', 'VRF system service', 'variable refrigerant flow'],
+    boiler: ['commercial boiler repair', 'boiler maintenance'],
+    ahu: ['air handling unit service', 'AHU repair', 'air handler maintenance'],
+    ptac: ['PTAC unit service', 'PTAC installation'],
+    heat_pump: ['commercial heat pump', 'heat pump installation'],
+    geothermal: ['geothermal HVAC', 'geothermal system installation'],
+    ductless_mini_split: ['ductless mini-split', 'mini-split installation'],
+  }
+  for (const st of c.system_types || []) {
+    if (systemKwMap[st]) kw.push(...systemKwMap[st])
+  }
+
+  // Building type keywords
+  const buildingKwMap: Record<string, string[]> = {
+    office: ['office building HVAC', 'commercial office cooling'],
+    retail: ['retail HVAC service', 'store HVAC maintenance'],
+    industrial: ['industrial HVAC', 'warehouse cooling', 'factory HVAC'],
+    healthcare: ['hospital HVAC', 'medical facility HVAC', 'healthcare HVAC compliance'],
+    education: ['school HVAC', 'university HVAC service'],
+    hospitality: ['hotel HVAC', 'hospitality HVAC service'],
+    data_center: ['data center cooling', 'server room HVAC', 'precision cooling'],
+    multi_family: ['multi-family HVAC', 'apartment HVAC service'],
+    government: ['government building HVAC', 'municipal HVAC service'],
+    restaurant: ['restaurant HVAC', 'commercial kitchen ventilation'],
+    mixed_use: ['mixed-use building HVAC'],
+  }
+  for (const bt of c.building_types_served || []) {
+    if (buildingKwMap[bt]) kw.push(...buildingKwMap[bt])
+  }
+
+  // Service keywords
+  if (c.offers_24_7) kw.push('24/7 emergency HVAC', 'after-hours HVAC repair')
+  if (c.multi_site_coverage) kw.push('multi-site HVAC management', 'national HVAC coverage')
+  if (c.offers_service_agreements) kw.push('HVAC maintenance contract', 'preventive maintenance agreement')
+  if (c.tonnage_range_max && c.tonnage_range_max >= 100) kw.push('large tonnage HVAC', 'high-capacity commercial HVAC')
+
+  // Brand keywords
+  for (const brand of (c.brands_serviced || []).slice(0, 4)) {
+    kw.push(`${brand} commercial HVAC`, `${brand} authorized service`)
+  }
+
+  return [...new Set(kw)] // deduplicate
+}
+
 async function generateWithClaude(
   factSheet: string,
   companyName: string,
-  websiteText: string | null
+  websiteText: string | null,
+  seoKeywords: string[] = []
 ): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
@@ -202,7 +266,8 @@ Your writing must:
 - Weave in relevant SEO keywords naturally: commercial HVAC, the city/metro area, specific system types and building types the company handles
 - Emphasize what a facility manager actually cares about: response times, system expertise, track record, scale of projects, coverage area, certifications
 - Highlight concrete differentiators from residential directories (Angi, HomeAdvisor): commercial-only focus, tonnage capacity, multi-building coverage, SLAs, emergency response guarantees
-- Be 200–300 words — meaty enough to rank, short enough to read
+- MINIMUM 150 words, TARGET 200–300 words — this is critical. Even with limited data, write at least 150 words by elaborating on location, services, and what facility managers should expect
+- If data is thin, expand on: the company's service area, typical commercial HVAC needs in that market, and what makes choosing a local contractor important for property managers
 - Open with the single most compelling fact about the company (e.g. "Since 1974..." or "Covering 92 commercial projects across DFW...")
 - Use short paragraphs (2–3 sentences max)
 - Include the city/metro in the first sentence
@@ -217,8 +282,12 @@ CONTRACTOR FACTS (verified data from our database):
 ${factSheet}
 ${websiteSection}
 
+SEO KEYWORDS TO WEAVE IN NATURALLY (use 5–8 of these, don't force all):
+${seoKeywords.length > 0 ? seoKeywords.slice(0, 15).join(', ') : 'commercial HVAC, HVAC contractor, HVAC service'}
+
 Instructions:
 - Use facts from BOTH the database AND the website content (if provided)
+- Naturally incorporate 5–8 of the SEO keywords above into the description — they should read as organic text, not a keyword list
 - Do NOT copy sentences verbatim from their website — rewrite in your own voice
 - If website content reveals specifics not in the database (year founded, certifications, project types, client testimonials, specific services), incorporate those
 - If no website content is available and the database facts are thin, write a shorter but still useful description (~150 words) rather than padding with generic fluff
@@ -234,7 +303,7 @@ Write the description now. Output ONLY the description text.`
     },
     body: JSON.stringify({
       model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 700,
+      max_tokens: 1500,
       system: systemPrompt,
       messages: [
         { role: 'user', content: userPrompt },
@@ -378,12 +447,31 @@ export async function POST(request: NextRequest) {
       websiteText = await fetchWebsiteContent(websiteUrl)
     }
 
+    // Build SEO keywords for this contractor
+    const seoKeywords = buildSeoKeywords(c)
+
     let description: string
     let source: 'claude' | 'template'
 
     // Try Claude first, fall back to template
     try {
-      description = await generateWithClaude(factSheet, c.company_name, websiteText)
+      description = await generateWithClaude(factSheet, c.company_name, websiteText, seoKeywords)
+
+      // Check minimum length — retry once if too short
+      const wordCount = description.split(/\s+/).length
+      if (wordCount < 100) {
+        console.log(`First attempt too short (${wordCount} words), retrying with stronger prompt...`)
+        const retryDescription = await generateWithClaude(
+          factSheet + '\n\nIMPORTANT: Your previous attempt was only ' + wordCount + ' words. The MINIMUM is 150 words. Write a more comprehensive description covering the company\'s service area, capabilities, and value to facility managers.',
+          c.company_name,
+          websiteText,
+          seoKeywords
+        )
+        if (retryDescription.split(/\s+/).length > wordCount) {
+          description = retryDescription
+        }
+      }
+
       source = 'claude'
     } catch (aiErr) {
       console.error('Claude generation failed, using template fallback:', aiErr)
