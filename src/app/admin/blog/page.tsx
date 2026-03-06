@@ -54,6 +54,8 @@ export default function AdminBlogPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [scanResult, setScanResult] = useState<string | null>(null)
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('')
@@ -132,6 +134,29 @@ export default function AdminBlogPage() {
   }, [statusFilter, searchDebounced])
 
   // ─── Actions ──────────────────────────────────────────────────────────────
+
+  const handleScanNews = async () => {
+    setScanning(true)
+    setScanResult(null)
+    try {
+      const res = await fetch('/api/admin/blog/scan-news', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) throw new Error('Scan failed')
+      const data = await res.json()
+      setScanResult(data.message || `Created ${data.drafts_created} draft(s)`)
+      if (data.drafts_created > 0) {
+        fetchPosts()
+        fetchStats()
+      }
+    } catch (err) {
+      console.error('Scan news error:', err)
+      setScanResult('Failed to scan news. Please try again.')
+    } finally {
+      setScanning(false)
+    }
+  }
 
   const handleGenerate = async () => {
     setGenerating(true)
@@ -270,6 +295,19 @@ export default function AdminBlogPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={handleScanNews}
+            loading={scanning}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" x2="22" y1="12" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            Scan Industry News
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleGenerate}
             loading={generating}
           >
@@ -290,6 +328,14 @@ export default function AdminBlogPage() {
           </Button>
         </div>
       </div>
+
+      {/* Scan result notification */}
+      {scanResult && (
+        <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${scanResult.includes('Failed') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+          {scanResult}
+          <button onClick={() => setScanResult(null)} className="ml-3 text-xs underline opacity-70 hover:opacity-100">Dismiss</button>
+        </div>
+      )}
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
