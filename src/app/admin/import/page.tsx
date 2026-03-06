@@ -219,6 +219,7 @@ export default function AdminImportPage() {
   const [importProgress, setImportProgress] = useState(0)
   const [importTotal, setImportTotal] = useState(0)
   const [importedCount, setImportedCount] = useState(0)
+  const [skippedCount, setSkippedCount] = useState(0)
   const [importErrors, setImportErrors] = useState<ImportError[]>([])
   const [importDone, setImportDone] = useState(false)
 
@@ -332,11 +333,13 @@ export default function AdminImportPage() {
     setImporting(true)
     setImportDone(false)
     setImportedCount(0)
+    setSkippedCount(0)
     setImportErrors([])
     setImportTotal(allRows.length)
     setImportProgress(0)
 
     let totalImported = 0
+    let totalSkipped = 0
     const allErrors: ImportError[] = []
 
     for (let i = 0; i < allRows.length; i += BATCH_SIZE) {
@@ -359,6 +362,7 @@ export default function AdminImportPage() {
           })
         } else {
           totalImported += data.imported ?? 0
+          totalSkipped += data.skipped ?? 0
           if (data.errors) {
             // Adjust row numbers to be relative to full dataset
             for (const err of data.errors as ImportError[]) {
@@ -375,6 +379,7 @@ export default function AdminImportPage() {
 
       setImportProgress(Math.min(i + BATCH_SIZE, allRows.length))
       setImportedCount(totalImported)
+      setSkippedCount(totalSkipped)
       setImportErrors([...allErrors])
     }
 
@@ -977,6 +982,14 @@ export default function AdminImportPage() {
                     <span className="font-semibold">{importedCount}</span> imported
                   </span>
                 </div>
+                {skippedCount > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-amber-400" />
+                    <span className="text-sm text-neutral-700">
+                      <span className="font-semibold">{skippedCount}</span> duplicate{skippedCount !== 1 ? 's' : ''} skipped
+                    </span>
+                  </div>
+                )}
                 {importErrors.length > 0 && (
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-[#c83518]" />
@@ -1039,8 +1052,8 @@ export default function AdminImportPage() {
                         }`}
                       >
                         {importErrors.length === 0
-                          ? `All ${importedCount} contractors imported successfully!`
-                          : `Imported ${importedCount} contractors with ${importErrors.length} error${importErrors.length !== 1 ? 's' : ''}`}
+                          ? `All ${importedCount} contractors imported successfully!${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount !== 1 ? "s" : ""} skipped)` : ""}`
+                          : `Imported ${importedCount} contractors with ${importErrors.length} error${importErrors.length !== 1 ? 's' : ''}${skippedCount > 0 ? ` (${skippedCount} duplicate${skippedCount !== 1 ? "s" : ""} skipped)` : ""}`}
                       </p>
                     </div>
                   </div>
