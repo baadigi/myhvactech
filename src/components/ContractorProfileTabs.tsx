@@ -323,7 +323,7 @@ export default function ContractorProfileTabs({ contractor }: Props) {
         <div className="space-y-8">
 
           {/* Commercial Capabilities */}
-          {(contractor.emergency_response_minutes || contractor.offers_24_7 || contractor.sla_summary || contractor.multi_site_coverage || contractor.dispatch_crm) && (
+          {(Boolean(contractor.emergency_response_minutes) || contractor.offers_24_7 || Boolean(contractor.sla_summary) || contractor.multi_site_coverage || Boolean(contractor.dispatch_crm)) && (
             <section>
               <h2 className="text-base font-semibold text-neutral-900 mb-3 flex items-center gap-2">
                 <Cpu size={16} className="text-neutral-400" aria-hidden="true" />
@@ -407,13 +407,13 @@ export default function ContractorProfileTabs({ contractor }: Props) {
           )}
 
           {/* Description */}
-          {(contractor.description || (contractor as unknown as Record<string, unknown>).google_editorial_summary) && (
+          {(Boolean(contractor.description) || Boolean((contractor as unknown as Record<string, unknown>).google_editorial_summary)) && (
             <section>
               <h2 className="text-base font-semibold text-neutral-900 mb-3">About</h2>
               <div className="prose prose-sm max-w-none text-neutral-700 leading-relaxed whitespace-pre-line">
-                {contractor.description || ((contractor as unknown as Record<string, unknown>).google_editorial_summary as string)}
+                {contractor.description || String((contractor as unknown as Record<string, unknown>).google_editorial_summary || '')}
               </div>
-              {!contractor.description && (contractor as unknown as Record<string, unknown>).google_editorial_summary && (
+              {!contractor.description && Boolean((contractor as unknown as Record<string, unknown>).google_editorial_summary) && (
                 <p className="text-xs text-neutral-400 mt-2">Source: Google Business Profile</p>
               )}
             </section>
