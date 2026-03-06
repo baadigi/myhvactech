@@ -111,11 +111,13 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_verified', true)
     }
 
-  const missingDesc = searchParams.get('missing_descriptions')
-  if (missingDesc === 'true') {
-    query = query.or('description.is.null,description.eq.')
-  } else if (verified === 'no') {
+    if (verified === 'no') {
       query = query.eq('is_verified', false)
+    }
+
+    const missingDesc = url.searchParams.get('missing_descriptions')
+    if (missingDesc === 'true') {
+      query = query.or('description.is.null,description.eq.')
     }
 
     // Sort
