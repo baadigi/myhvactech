@@ -165,7 +165,7 @@ function autoMatchColumn(csvHeader: string): string {
     phone: ['phone', 'telephone', 'phonenumber', 'tel'],
     email: ['email', 'emailaddress', 'mail'],
     website: ['website', 'url', 'web', 'site', 'homepage'],
-    google_place_id: ['googleplaceid', 'placeid', 'place_id', 'google_place_id', 'googleplaces', 'gplaceid', 'places_id'],
+    google_place_id: ['googleplaceid', 'placeid', 'place_id', 'google_place_id', 'googleplaces', 'gplaceid', 'places_id', 'placesid'],
     street_address: ['streetaddress', 'address', 'street', 'addr', 'address1'],
     zip_code: ['zipcode', 'zip', 'postalcode', 'postal'],
     description: ['description', 'desc', 'about', 'bio'],
