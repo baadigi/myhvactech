@@ -93,7 +93,11 @@ export async function GET(request: NextRequest) {
         phone,
         slot_tier,
         metro_area,
-        owner_id
+        owner_id,
+        google_place_id,
+        google_rating,
+        google_review_count,
+        google_last_synced_at
       `, { count: 'exact' })
 
     // Filters

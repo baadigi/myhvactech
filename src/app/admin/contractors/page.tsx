@@ -58,6 +58,7 @@ export default function AdminContractorsPage() {
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [syncAllLoading, setSyncAllLoading] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
+  const [generatingId, setGeneratingId] = useState<string | null>(null)
 
   const limit = 50
 
@@ -241,6 +242,28 @@ export default function AdminContractorsPage() {
       setSyncMessage('Batch sync failed \u2014 check API key')
     } finally {
       setSyncAllLoading(false)
+    }
+  }
+
+  const generateDescription = async (id: string) => {
+    setGeneratingId(id)
+    setSyncMessage(null)
+    try {
+      const res = await fetch('/api/admin/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contractor_id: id, save: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setSyncMessage(data.error || 'Generation failed')
+        return
+      }
+      setSyncMessage(`About generated via ${data.source} (${data.word_count} words) \u2014 saved`)
+    } catch {
+      setSyncMessage('Description generation failed')
+    } finally {
+      setGeneratingId(null)
     }
   }
 
@@ -586,6 +609,18 @@ export default function AdminContractorsPage() {
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                               <rect width="20" height="14" x="2" y="5" rx="2"/>
                               <line x1="2" x2="22" y1="10" y2="10"/>
+                            </svg>
+                          </button>
+
+                          {/* Generate AI About */}
+                          <button
+                            onClick={() => generateDescription(c.id)}
+                            disabled={generatingId === c.id}
+                            title="Generate AI About Us"
+                            className="p-1.5 rounded text-neutral-300 hover:text-purple-500 hover:bg-purple-50 transition-colors disabled:opacity-50"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={generatingId === c.id ? 'animate-pulse' : ''} aria-hidden="true">
+                              <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7L12 16.4 5.7 21l2.3-7L2 9.4h7.6z"/>
                             </svg>
                           </button>
 

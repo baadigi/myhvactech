@@ -21,15 +21,20 @@ interface Props {
   contractor: Contractor & { reviews?: Review[] }
 }
 
-const DAYS_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-const DAY_LABELS: Record<string, string> = {
-  monday: 'Monday',
-  tuesday: 'Tuesday',
-  wednesday: 'Wednesday',
-  thursday: 'Thursday',
-  friday: 'Friday',
-  saturday: 'Saturday',
-  sunday: 'Sunday',
+const DAYS_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+// Normalize operating hours keys to title case for consistent lookup
+function normalizeHoursKeys(
+  hours: Record<string, { open: string; close: string }> | null
+): Record<string, { open: string; close: string }> | null {
+  if (!hours) return null
+  const normalized: Record<string, { open: string; close: string }> = {}
+  for (const [key, val] of Object.entries(hours)) {
+    // Convert "monday" → "Monday" or keep "Monday" as-is
+    const titleKey = key.charAt(0).toUpperCase() + key.slice(1).toLowerCase()
+    normalized[titleKey] = val
+  }
+  return normalized
 }
 
 function formatHour(time: string): string {
@@ -402,12 +407,15 @@ export default function ContractorProfileTabs({ contractor }: Props) {
           )}
 
           {/* Description */}
-          {contractor.description && (
+          {(contractor.description || (contractor as unknown as Record<string, unknown>).google_editorial_summary) && (
             <section>
               <h2 className="text-base font-semibold text-neutral-900 mb-3">About</h2>
               <div className="prose prose-sm max-w-none text-neutral-700 leading-relaxed whitespace-pre-line">
-                {contractor.description}
+                {contractor.description || ((contractor as unknown as Record<string, unknown>).google_editorial_summary as string)}
               </div>
+              {!contractor.description && (contractor as unknown as Record<string, unknown>).google_editorial_summary && (
+                <p className="text-xs text-neutral-400 mt-2">Source: Google Business Profile</p>
+              )}
             </section>
           )}
 
@@ -526,7 +534,8 @@ export default function ContractorProfileTabs({ contractor }: Props) {
                 <table className="w-full text-sm">
                   <tbody>
                     {DAYS_ORDER.map((day) => {
-                      const hours = contractor.operating_hours?.[day]
+                      const normalizedHours = normalizeHoursKeys(contractor.operating_hours)
+                      const hours = normalizedHours?.[day]
                       const isToday = day === todayKey
                       return (
                         <tr
@@ -537,7 +546,7 @@ export default function ContractorProfileTabs({ contractor }: Props) {
                           )}
                         >
                           <td className={cn('px-4 py-2.5 font-medium', isToday ? 'text-primary-700' : 'text-neutral-700')}>
-                            {DAY_LABELS[day]}
+                            {day}
                             {isToday && (
                               <span className="ml-2 text-xs font-semibold text-primary-600 bg-primary-100 px-1.5 py-0.5 rounded-full">
                                 Today
@@ -774,21 +783,60 @@ export default function ContractorProfileTabs({ contractor }: Props) {
       {activeTab === 'photos' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-neutral-900">Project Photos</h2>
+            <h2 className="text-base font-semibold text-neutral-900">Photos</h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-square bg-neutral-200 rounded-xl flex flex-col items-center justify-center border border-neutral-300 text-neutral-400"
-              >
-                <Camera size={24} aria-hidden="true" />
-                <span className="text-xs mt-1.5">No photo</span>
+
+          {/* Contractor-uploaded photos */}
+          {contractor.photos && contractor.photos.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {contractor.photos.map((photo) => (
+                <div key={photo.id} className="aspect-square bg-neutral-100 rounded-xl overflow-hidden border border-neutral-200">
+                  <img
+                    src={photo.url}
+                    alt={photo.caption || 'Project photo'}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Show Google photos if no uploaded photos */
+            (contractor as unknown as Record<string, unknown>).google_photos &&
+            Array.isArray((contractor as unknown as Record<string, unknown>).google_photos) &&
+            ((contractor as unknown as Record<string, unknown>).google_photos as { photo_reference: string; width: number; height: number }[]).length > 0 ? (
+              <>
+                <p className="text-xs text-neutral-400 mb-3">Photos from Google Business Profile</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {((contractor as unknown as Record<string, unknown>).google_photos as { photo_reference: string; width: number; height: number }[]).map((gPhoto, i) => (
+                    <div key={i} className="aspect-square bg-neutral-100 rounded-xl overflow-hidden border border-neutral-200">
+                      <img
+                        src={`/api/admin/google-sync?photo_reference=${gPhoto.photo_reference}&maxwidth=400`}
+                        alt={`Google Business photo ${i + 1}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="aspect-square bg-neutral-200 rounded-xl flex flex-col items-center justify-center border border-neutral-300 text-neutral-400"
+                  >
+                    <Camera size={24} aria-hidden="true" />
+                    <span className="text-xs mt-1.5">No photo</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )
+          )}
           <p className="text-sm text-neutral-400 text-center mt-6">
-            Photos will appear once uploaded by the contractor.
+            {contractor.photos && contractor.photos.length > 0
+              ? 'Photos uploaded by the contractor.'
+              : 'Photos will appear once uploaded by the contractor or synced from Google.'}
           </p>
         </div>
       )}
