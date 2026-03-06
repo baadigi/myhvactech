@@ -44,7 +44,7 @@ function generateSlug(title: string): string {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
-    .slice(0, 80)
+    .replace(/^(.{0,80})-.*$/, '$1')
 }
 
 export async function GET(request: NextRequest) {
