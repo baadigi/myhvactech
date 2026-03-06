@@ -66,6 +66,19 @@ export interface Contractor {
   google_reviews?: GoogleReview[]
   google_business_url?: string | null
   google_last_synced_at?: string | null
+  google_phone?: string | null
+  google_website?: string | null
+  google_formatted_address?: string | null
+  google_hours?: {
+    open_now?: boolean
+    weekday_text?: string[]
+    periods?: { open: { day: number; time: string }; close?: { day: number; time: string } }[]
+  } | null
+  google_photos?: { photo_reference: string; width: number; height: number }[]
+  google_business_status?: string | null
+  google_editorial_summary?: string | null
+  google_lat?: number | null
+  google_lng?: number | null
 
   // ─── Relations ─────────────────────────────────────────────
   services?: Service[]

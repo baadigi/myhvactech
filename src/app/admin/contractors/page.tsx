@@ -207,6 +207,7 @@ export default function AdminContractorsPage() {
     setSyncingId(id)
     setSyncMessage(null)
     try {
+      // Step 1: Sync Google data
       const res = await fetch('/api/admin/google-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -217,7 +218,26 @@ export default function AdminContractorsPage() {
         setSyncMessage(data.error || 'Sync failed')
         return
       }
-      setSyncMessage(`Synced: ${data.data?.rating ?? '\u2014'}\u2605 (${data.data?.review_count ?? 0} reviews)`)
+
+      setSyncMessage(`Synced: ${data.data?.rating ?? '\u2014'}\u2605 (${data.data?.review_count ?? 0} reviews) \u2014 generating description...`)
+
+      // Step 2: Auto-generate AI description
+      try {
+        const descRes = await fetch('/api/admin/generate-description', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contractor_id: id, save: true }),
+        })
+        const descData = await descRes.json()
+        if (descRes.ok) {
+          setSyncMessage(`Synced: ${data.data?.rating ?? '\u2014'}\u2605 (${data.data?.review_count ?? 0} reviews) + About written via ${descData.source} (${descData.word_count} words)`)
+        } else {
+          setSyncMessage(`Synced Google data \u2014 but description failed: ${descData.error}`)
+        }
+      } catch {
+        setSyncMessage(`Synced Google data \u2014 but description generation failed`)
+      }
+
       fetchContractors()
     } catch (err) {
       setSyncMessage(`Sync failed: ${err instanceof Error ? err.message : 'network error'}`)

@@ -407,13 +407,13 @@ export default function ContractorProfileTabs({ contractor }: Props) {
           )}
 
           {/* Description */}
-          {(Boolean(contractor.description) || Boolean((contractor as unknown as Record<string, unknown>).google_editorial_summary)) && (
+          {(Boolean(contractor.description) || Boolean(contractor.google_editorial_summary)) && (
             <section>
               <h2 className="text-base font-semibold text-neutral-900 mb-3">About</h2>
               <div className="prose prose-sm max-w-none text-neutral-700 leading-relaxed whitespace-pre-line">
-                {contractor.description || String((contractor as unknown as Record<string, unknown>).google_editorial_summary || '')}
+                {contractor.description || contractor.google_editorial_summary || ''}
               </div>
-              {!contractor.description && Boolean((contractor as unknown as Record<string, unknown>).google_editorial_summary) && (
+              {!contractor.description && Boolean(contractor.google_editorial_summary) && (
                 <p className="text-xs text-neutral-400 mt-2">Source: Google Business Profile</p>
               )}
             </section>
@@ -524,46 +524,87 @@ export default function ContractorProfileTabs({ contractor }: Props) {
           )}
 
           {/* Operating Hours */}
-          {contractor.operating_hours && (
-            <section>
-              <h2 className="text-base font-semibold text-neutral-900 mb-3 flex items-center gap-2">
-                <Clock size={16} className="text-neutral-400" aria-hidden="true" />
-                Operating Hours
-              </h2>
-              <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
-                  <tbody>
-                    {DAYS_ORDER.map((day) => {
-                      const normalizedHours = normalizeHoursKeys(contractor.operating_hours)
-                      const hours = normalizedHours?.[day]
-                      const isToday = day === todayKey
-                      return (
-                        <tr
-                          key={day}
-                          className={cn(
-                            'border-b last:border-b-0 border-neutral-100',
-                            isToday && 'bg-primary-50'
-                          )}
-                        >
-                          <td className={cn('px-4 py-2.5 font-medium', isToday ? 'text-primary-700' : 'text-neutral-700')}>
-                            {day}
-                            {isToday && (
-                              <span className="ml-2 text-xs font-semibold text-primary-600 bg-primary-100 px-1.5 py-0.5 rounded-full">
-                                Today
-                              </span>
-                            )}
-                          </td>
-                          <td className={cn('px-4 py-2.5 text-right', isToday ? 'text-primary-700 font-medium' : 'text-neutral-500')}>
-                            {hours ? `${formatHour(hours.open)} – ${formatHour(hours.close)}` : 'Closed'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
+          {(() => {
+            const normalizedHours = normalizeHoursKeys(contractor.operating_hours)
+            const hasStructuredHours = normalizedHours && Object.keys(normalizedHours).length > 0
+            const weekdayText = contractor.google_hours?.weekday_text
+            const hasWeekdayText = weekdayText && weekdayText.length > 0
+
+            if (!hasStructuredHours && !hasWeekdayText) return null
+
+            return (
+              <section>
+                <h2 className="text-base font-semibold text-neutral-900 mb-3 flex items-center gap-2">
+                  <Clock size={16} className="text-neutral-400" aria-hidden="true" />
+                  Operating Hours
+                </h2>
+                <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {hasStructuredHours ? (
+                        DAYS_ORDER.map((day) => {
+                          const hours = normalizedHours[day]
+                          const isToday = day === todayKey
+                          return (
+                            <tr
+                              key={day}
+                              className={cn(
+                                'border-b last:border-b-0 border-neutral-100',
+                                isToday && 'bg-primary-50'
+                              )}
+                            >
+                              <td className={cn('px-4 py-2.5 font-medium', isToday ? 'text-primary-700' : 'text-neutral-700')}>
+                                {day}
+                                {isToday && (
+                                  <span className="ml-2 text-xs font-semibold text-primary-600 bg-primary-100 px-1.5 py-0.5 rounded-full">
+                                    Today
+                                  </span>
+                                )}
+                              </td>
+                              <td className={cn('px-4 py-2.5 text-right', isToday ? 'text-primary-700 font-medium' : 'text-neutral-500')}>
+                                {hours ? `${formatHour(hours.open)} – ${formatHour(hours.close)}` : 'Closed'}
+                              </td>
+                            </tr>
+                          )
+                        })
+                      ) : (
+                        weekdayText!.map((line) => {
+                          const colonIdx = line.indexOf(':')
+                          const dayName = colonIdx > -1 ? line.slice(0, colonIdx).trim() : line
+                          const timeStr = colonIdx > -1 ? line.slice(colonIdx + 1).trim() : ''
+                          const isToday = dayName === todayKey
+                          return (
+                            <tr
+                              key={line}
+                              className={cn(
+                                'border-b last:border-b-0 border-neutral-100',
+                                isToday && 'bg-primary-50'
+                              )}
+                            >
+                              <td className={cn('px-4 py-2.5 font-medium', isToday ? 'text-primary-700' : 'text-neutral-700')}>
+                                {dayName}
+                                {isToday && (
+                                  <span className="ml-2 text-xs font-semibold text-primary-600 bg-primary-100 px-1.5 py-0.5 rounded-full">
+                                    Today
+                                  </span>
+                                )}
+                              </td>
+                              <td className={cn('px-4 py-2.5 text-right', isToday ? 'text-primary-700 font-medium' : 'text-neutral-500')}>
+                                {timeStr || 'Closed'}
+                              </td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {!hasStructuredHours && hasWeekdayText && (
+                  <p className="text-xs text-neutral-400 mt-2">Hours from Google Business Profile</p>
+                )}
+              </section>
+            )
+          })()}
 
           {/* Service Areas */}
           {contractor.service_areas && contractor.service_areas.length > 0 && (
@@ -619,19 +660,35 @@ export default function ContractorProfileTabs({ contractor }: Props) {
             </div>
           </section>
 
-          {/* Map Placeholder */}
+          {/* Location Map */}
           <section>
             <h2 className="text-base font-semibold text-neutral-900 mb-3 flex items-center gap-2">
               <MapPin size={16} className="text-neutral-400" aria-hidden="true" />
               Location
             </h2>
-            <div className="bg-neutral-200 rounded-xl h-48 flex flex-col items-center justify-center text-neutral-500 border border-neutral-300">
-              <MapPin size={24} className="text-neutral-400 mb-2" aria-hidden="true" />
-              <p className="text-sm font-medium text-neutral-600">
-                {contractor.street_address}, {contractor.city}, {contractor.state} {contractor.zip_code}
-              </p>
-              <p className="text-xs text-neutral-400 mt-1">Interactive map coming soon</p>
-            </div>
+            {(() => {
+              const addressStr = contractor.google_formatted_address || `${contractor.street_address || ''} ${contractor.city}, ${contractor.state} ${contractor.zip_code || ''}`.trim()
+              const mapQuery = contractor.google_lat && contractor.google_lng
+                ? `${contractor.google_lat},${contractor.google_lng}`
+                : encodeURIComponent(addressStr)
+              return (
+                <div className="rounded-xl overflow-hidden border border-neutral-200">
+                  <iframe
+                    title={`Map of ${contractor.company_name}`}
+                    width="100%"
+                    height="260"
+                    style={{ border: 0, display: 'block' }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://maps.google.com/maps?q=${mapQuery}&z=14&output=embed`}
+                    allowFullScreen
+                  />
+                  <div className="bg-white px-4 py-3">
+                    <p className="text-sm font-medium text-neutral-700">{addressStr}</p>
+                  </div>
+                </div>
+              )
+            })()}
           </section>
         </div>
       )}
@@ -801,13 +858,11 @@ export default function ContractorProfileTabs({ contractor }: Props) {
             </div>
           ) : (
             /* Show Google photos if no uploaded photos */
-            (contractor as unknown as Record<string, unknown>).google_photos &&
-            Array.isArray((contractor as unknown as Record<string, unknown>).google_photos) &&
-            ((contractor as unknown as Record<string, unknown>).google_photos as { photo_reference: string; width: number; height: number }[]).length > 0 ? (
+            contractor.google_photos && contractor.google_photos.length > 0 ? (
               <>
                 <p className="text-xs text-neutral-400 mb-3">Photos from Google Business Profile</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {((contractor as unknown as Record<string, unknown>).google_photos as { photo_reference: string; width: number; height: number }[]).map((gPhoto, i) => (
+                  {contractor.google_photos.map((gPhoto, i) => (
                     <div key={i} className="aspect-square bg-neutral-100 rounded-xl overflow-hidden border border-neutral-200">
                       <img
                         src={`/api/admin/google-sync?photo_reference=${gPhoto.photo_reference}&maxwidth=400`}

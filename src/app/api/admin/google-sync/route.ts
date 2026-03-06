@@ -203,7 +203,7 @@ async function syncContractor(
         updateData.street_address = parts[0].trim()
       }
     }
-    if (!currentContractor.operating_hours && operatingHours) {
+    if ((!currentContractor.operating_hours || Object.keys(currentContractor.operating_hours).length === 0) && operatingHours) {
       updateData.operating_hours = operatingHours
     }
   }
