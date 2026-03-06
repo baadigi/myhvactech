@@ -219,8 +219,8 @@ export default function AdminContractorsPage() {
       }
       setSyncMessage(`Synced: ${data.data?.rating ?? '\u2014'}\u2605 (${data.data?.review_count ?? 0} reviews)`)
       fetchContractors()
-    } catch {
-      setSyncMessage('Sync failed \u2014 check API key')
+    } catch (err) {
+      setSyncMessage(`Sync failed: ${err instanceof Error ? err.message : 'network error'}`)
     } finally {
       setSyncingId(null)
     }
@@ -238,8 +238,8 @@ export default function AdminContractorsPage() {
       }
       setSyncMessage(`Batch sync: ${data.synced}/${data.total} contractors synced`)
       fetchContractors()
-    } catch {
-      setSyncMessage('Batch sync failed \u2014 check API key')
+    } catch (err) {
+      setSyncMessage(`Batch sync failed: ${err instanceof Error ? err.message : 'network error'}`)
     } finally {
       setSyncAllLoading(false)
     }
@@ -264,6 +264,28 @@ export default function AdminContractorsPage() {
       setSyncMessage('Description generation failed')
     } finally {
       setGeneratingId(null)
+    }
+  }
+
+  const deleteContractor = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"? This removes all reviews, leads, photos, and projects. This cannot be undone.`)) {
+      return
+    }
+    setActionLoading(id)
+    try {
+      const res = await fetch(`/api/admin/contractors?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || 'Delete failed')
+        return
+      }
+      setContractors(prev => prev.filter(c => c.id !== id))
+      setTotal(prev => prev - 1)
+      setSyncMessage(`Deleted "${name}"`)
+    } catch {
+      alert('Delete failed \u2014 network error')
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -638,6 +660,21 @@ export default function AdminContractorsPage() {
                               <line x1="10" x2="21" y1="14" y2="3"/>
                             </svg>
                           </Link>
+
+                          {/* Delete */}
+                          <button
+                            onClick={() => deleteContractor(c.id, c.company_name)}
+                            disabled={actionLoading === c.id}
+                            title="Delete contractor"
+                            className="p-1.5 rounded text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <polyline points="3 6 5 6 21 6"/>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                              <line x1="10" x2="10" y1="11" y2="17"/>
+                              <line x1="14" x2="14" y1="11" y2="17"/>
+                            </svg>
+                          </button>
                         </div>
                       </td>
                     </tr>

@@ -25,10 +25,12 @@ const GOOGLE_FIELDS = [
   'opening_hours',
   'photos',
   'business_status',
-  'editorial_summary',
   'geometry',
   'types',
 ].join(',')
+
+// editorial_summary is only in Places API (New) — not available in Legacy API
+// We'll skip it and use the AI description generator instead
 
 interface GoogleReview {
   author_name: string

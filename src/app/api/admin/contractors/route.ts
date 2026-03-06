@@ -398,3 +398,52 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+// ─── DELETE /api/admin/contractors ────────────────────────────────────────────
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const admin = await validateAdmin(supabase)
+    if (!admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const url = new URL(request.url)
+    const id = url.searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'Contractor ID is required' }, { status: 422 })
+    }
+
+    const db = createAdminClient()
+
+    // Delete related records first (cascade manually for safety)
+    await db.from('leads').delete().eq('contractor_id', id)
+    await db.from('reviews').delete().eq('contractor_id', id)
+    await db.from('contractor_photos').delete().eq('contractor_id', id)
+    await db.from('sample_projects').delete().eq('contractor_id', id)
+    await db.from('contractor_services').delete().eq('contractor_id', id)
+    await db.from('contractor_service_areas').delete().eq('contractor_id', id)
+    await db.from('claim_requests').delete().eq('contractor_id', id)
+
+    // Delete the contractor
+    const { error: deleteError } = await db
+      .from('contractors')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      console.error('Admin contractor delete error:', deleteError)
+      return NextResponse.json(
+        { error: deleteError.message || 'Failed to delete contractor' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ success: true, deleted: id })
+  } catch (err) {
+    console.error('Admin DELETE contractors error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
