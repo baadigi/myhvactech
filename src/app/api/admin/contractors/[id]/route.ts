@@ -40,6 +40,48 @@ export async function GET(
   }
 }
 
+// Type coercion helpers — form sends strings, Supabase expects int/float/null
+const toInt = (v: unknown): number | null => {
+  if (v === undefined || v === null || v === '') return null
+  const n = parseInt(String(v), 10)
+  return isNaN(n) ? null : n
+}
+const toFloat = (v: unknown): number | null => {
+  if (v === undefined || v === null || v === '') return null
+  const n = parseFloat(String(v))
+  return isNaN(n) ? null : n
+}
+const toStr = (v: unknown): string | null => {
+  if (v === undefined || v === null || v === '') return null
+  return String(v).trim()
+}
+
+// Fields that need integer casting
+const INT_FIELDS = new Set([
+  'year_established', 'tonnage_range_min', 'tonnage_range_max',
+  'service_radius_miles', 'num_technicians', 'num_nate_certified',
+  'emergency_response_minutes', 'max_sites_supported',
+  'years_commercial_experience',
+])
+const FLOAT_FIELDS = new Set(['avg_quote_turnaround_hours'])
+const BOOL_FIELDS = new Set([
+  'is_verified', 'is_featured', 'is_claimed', 'commercial_verified',
+  'insurance_verified', 'offers_24_7', 'multi_site_coverage',
+  'offers_service_agreements', 'uses_gps_tracking',
+])
+const ARRAY_FIELDS = new Set([
+  'system_types', 'building_types_served', 'brands_serviced',
+  'service_agreement_types',
+])
+
+function castField(field: string, value: unknown): unknown {
+  if (INT_FIELDS.has(field)) return toInt(value)
+  if (FLOAT_FIELDS.has(field)) return toFloat(value)
+  if (BOOL_FIELDS.has(field)) return Boolean(value)
+  if (ARRAY_FIELDS.has(field)) return Array.isArray(value) ? value : []
+  return toStr(value)
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -75,7 +117,7 @@ export async function PATCH(
     const updates: Record<string, unknown> = {}
     for (const field of allowedFields) {
       if (field in body) {
-        updates[field] = body[field]
+        updates[field] = castField(field, body[field])
       }
     }
 
