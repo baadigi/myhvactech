@@ -60,6 +60,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       })
     }
 
+    // Blog posts
+    const { data: blogPosts } = await supabase
+      .from('blog_posts')
+      .select('slug, published_at, updated_at')
+      .eq('status', 'published')
+      .not('published_at', 'is', null)
+
+    if (blogPosts) {
+      // Blog index page
+      routes.push({
+        url: `${SITE_URL}/blog`,
+        lastModified: new Date(),
+        changeFrequency: 'daily',
+        priority: 0.7,
+      })
+
+      // Individual blog posts
+      blogPosts.forEach(post => {
+        routes.push({
+          url: `${SITE_URL}/blog/${post.slug}`,
+          lastModified: new Date(post.updated_at || post.published_at),
+          changeFrequency: 'weekly',
+          priority: 0.6,
+        })
+      })
+    }
+
     // City pages from service_areas
     const { data: serviceAreas } = await supabase
       .from('service_areas')

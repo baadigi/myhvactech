@@ -46,6 +46,11 @@ export const metadata: Metadata = {
     title: `${SITE_NAME} — Find Commercial HVAC Contractors`,
     description: SITE_DESCRIPTION,
   },
+  alternates: {
+    types: {
+      'application/rss+xml': `${SITE_URL}/feed.xml`,
+    },
+  },
   robots: {
     index: true,
     follow: true,
