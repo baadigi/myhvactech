@@ -5,7 +5,8 @@ import ContractorCard from '@/components/ContractorCard'
 import ServiceCard from '@/components/ServiceCard'
 import CityCard from '@/components/CityCard'
 import { Button } from '@/components/ui/Button'
-import { HVAC_SERVICES } from '@/lib/constants'
+import { HVAC_SERVICES, US_STATES } from '@/lib/constants'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { Contractor, Service } from '@/lib/types'
 
 // ——————————————————————————————————————————
@@ -287,18 +288,82 @@ const NOT_ANGI_POINTS = [
   },
 ]
 
-const TOP_CITIES = [
-  { city: 'Phoenix', state: 'Arizona', stateAbbr: 'AZ', contractorCount: 284 },
-  { city: 'Dallas', state: 'Texas', stateAbbr: 'TX', contractorCount: 412 },
-  { city: 'Miami', state: 'Florida', stateAbbr: 'FL', contractorCount: 318 },
-  { city: 'Houston', state: 'Texas', stateAbbr: 'TX', contractorCount: 497 },
-  { city: 'Chicago', state: 'Illinois', stateAbbr: 'IL', contractorCount: 523 },
-  { city: 'Los Angeles', state: 'California', stateAbbr: 'CA', contractorCount: 641 },
-  { city: 'Atlanta', state: 'Georgia', stateAbbr: 'GA', contractorCount: 289 },
-  { city: 'Denver', state: 'Colorado', stateAbbr: 'CO', contractorCount: 198 },
-]
+// Top cities are fetched dynamically from Supabase in the async HomePage component
 
-export default function HomePage() {
+/** Fetch top cities by contractor count from Supabase */
+async function getTopCities() {
+  try {
+    const db = createAdminClient()
+    // Fetch city + state for all active contractors
+    const { data, error } = await db
+      .from('contractors')
+      .select('city, state')
+      .neq('subscription_status', 'cancelled')
+
+    if (error || !data || data.length === 0) return []
+
+    // Group by city+state and count
+    const cityMap = new Map<string, { city: string; state: string; count: number }>()
+    for (const row of data) {
+      if (!row.city || !row.state) continue
+      const key = `${row.city.trim()}|${row.state.trim()}`
+      const existing = cityMap.get(key)
+      if (existing) {
+        existing.count++
+      } else {
+        cityMap.set(key, { city: row.city.trim(), state: row.state.trim(), count: 1 })
+      }
+    }
+
+    // Sort by count descending, take top 8
+    const sorted = [...cityMap.values()].sort((a, b) => b.count - a.count).slice(0, 8)
+
+    // Map state abbreviation to full name
+    return sorted.map(c => {
+      const stateObj = US_STATES.find(s => s.abbr === c.state)
+      return {
+        city: c.city,
+        state: stateObj?.name ?? c.state,
+        stateAbbr: c.state,
+        contractorCount: c.count,
+      }
+    })
+  } catch (err) {
+    console.error('Failed to fetch top cities:', err)
+    return []
+  }
+}
+
+/** Fetch featured contractors from Supabase */
+async function getFeaturedContractors() {
+  try {
+    const db = createAdminClient()
+    const { data, error } = await db
+      .from('contractors')
+      .select('*')
+      .neq('subscription_status', 'cancelled')
+      .order('review_count', { ascending: false })
+      .limit(3)
+
+    if (error || !data) return []
+    return data as (Contractor & { services: Service[] })[]
+  } catch (err) {
+    console.error('Failed to fetch featured contractors:', err)
+    return []
+  }
+}
+
+export default async function HomePage() {
+  const [topCities, featuredContractors] = await Promise.all([
+    getTopCities(),
+    getFeaturedContractors(),
+  ])
+
+  // Use live contractors if available, otherwise fall back to mocks
+  const displayContractors = featuredContractors.length > 0
+    ? featuredContractors
+    : MOCK_CONTRACTORS
+
   const featuredServices = HVAC_SERVICES.slice(0, 6).map((s, i) => ({
     id: `svc-${i}`,
     name: s.name,
@@ -524,7 +589,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {MOCK_CONTRACTORS.map((contractor) => (
+            {displayContractors.map((contractor) => (
               <ContractorCard key={contractor.id} contractor={contractor} />
             ))}
           </div>
@@ -642,21 +707,27 @@ export default function HomePage() {
               Find Contractors By City
             </h2>
             <p className="text-neutral-500 text-base max-w-lg mx-auto">
-              Browse verified commercial HVAC contractors in major cities across the US.
+              Browse verified commercial HVAC contractors in cities across the US.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {TOP_CITIES.map((city) => (
-              <CityCard
-                key={`${city.city}-${city.stateAbbr}`}
-                city={city.city}
-                state={city.state}
-                stateAbbr={city.stateAbbr}
-                contractorCount={city.contractorCount}
-              />
-            ))}
-          </div>
+          {topCities.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {topCities.map((city) => (
+                <CityCard
+                  key={`${city.city}-${city.stateAbbr}`}
+                  city={city.city}
+                  state={city.state}
+                  stateAbbr={city.stateAbbr}
+                  contractorCount={city.contractorCount}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-neutral-400 text-sm py-8">
+              City listings will appear here as contractors are added.
+            </p>
+          )}
         </div>
       </section>
 
