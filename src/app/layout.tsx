@@ -5,6 +5,7 @@ import './globals.css'
 import { SITE_NAME, SITE_DESCRIPTION, SITE_URL } from '@/lib/constants'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import { WebsiteSchema, OrganizationSchema } from '@/components/SchemaOrg'
 
 const GA_ID = 'G-0QJYC9011B'
 
@@ -72,11 +73,15 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${plusJakartaSans.variable}`}>
       <head>
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://dcxiruohzhbftqwpvhxo.supabase.co" />
+        <link rel="preconnect" href="https://dcxiruohzhbftqwpvhxo.supabase.co" />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-          strategy="afterInteractive"
+          strategy="lazyOnload"
         />
-        <Script id="google-analytics" strategy="afterInteractive">
+        <Script id="google-analytics" strategy="lazyOnload">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
@@ -86,6 +91,8 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="min-h-screen flex flex-col bg-neutral-50 text-neutral-900">
+        <WebsiteSchema />
+        <OrganizationSchema />
         <Navbar />
         <main className="flex-1 min-h-0">
           {children}

@@ -228,7 +228,7 @@ export default async function StatePage({ params }: Props) {
 
   return (
     <main className="min-h-screen bg-neutral-50">
-      <FAQSchema questions={faq.map(f => ({ question: f.q, answer: f.a }))} />
+      <FAQSchema items={faq.map(f => ({ question: f.q, answer: f.a }))} />
       <BreadcrumbSchema items={[
         { name: 'Home', url: SITE_URL },
         { name: stateObj.name, url: `${SITE_URL}/${state}` },

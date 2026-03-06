@@ -140,7 +140,7 @@ export default async function ServicePage({ params }: Props) {
         description={content?.full || `${service.name} is a critical commercial building service.`}
         slug={serviceSlug}
       />
-      <FAQSchema questions={faq.map(f => ({ question: f.q, answer: f.a }))} />
+      <FAQSchema items={faq.map(f => ({ question: f.q, answer: f.a }))} />
       <BreadcrumbSchema items={[
         { name: 'Home', url: SITE_URL },
         { name: 'Services', url: `${SITE_URL}/services` },

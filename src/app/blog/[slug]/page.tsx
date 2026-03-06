@@ -122,12 +122,11 @@ export default async function BlogPostPage({
   return (
     <div className="bg-neutral-50 min-h-screen">
       <BlogPostSchema
-        title={typedPost.title}
-        description={typedPost.excerpt || typedPost.title}
-        slug={typedPost.slug}
+        headline={typedPost.title}
+        excerpt={typedPost.excerpt || undefined}
         datePublished={typedPost.published_at}
-        author={typedPost.author_name || undefined}
-        imageUrl={typedPost.cover_image_url || undefined}
+        url={`${SITE_URL}/blog/${typedPost.slug}`}
+        cover_image_url={typedPost.cover_image_url || undefined}
       />
       <BreadcrumbSchema items={[
         { name: 'Home', url: SITE_URL },

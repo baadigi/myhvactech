@@ -307,7 +307,7 @@ export default async function CityServicePage({ params }: Props) {
         description={serviceDescription}
         slug={service}
       />
-      <FAQSchema questions={faq.map(f => ({ question: f.q, answer: f.a }))} />
+      <FAQSchema items={faq.map(f => ({ question: f.q, answer: f.a }))} />
       <BreadcrumbSchema items={[
         { name: 'Home', url: SITE_URL },
         { name: stateObj.name, url: `${SITE_URL}/${state}` },
