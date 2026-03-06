@@ -42,6 +42,7 @@ const ACCEPTED_FIELDS = new Set([
   'short_description',
   'license_number',
   'metro_area',
+  'google_place_id',
   ...ARRAY_FIELDS,
   ...INT_FIELDS,
   ...FLOAT_FIELDS,

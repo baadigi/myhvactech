@@ -37,6 +37,7 @@ const CONTRACTOR_FIELDS: FieldDef[] = [
   { key: 'phone', label: 'Phone', group: 'Contact' },
   { key: 'email', label: 'Email', group: 'Contact' },
   { key: 'website', label: 'Website', group: 'Contact' },
+  { key: 'google_place_id', label: 'Google Place ID', group: 'Contact' },
   // Address
   { key: 'street_address', label: 'Street Address', group: 'Address' },
   { key: 'zip_code', label: 'ZIP Code', group: 'Address' },
@@ -164,6 +165,7 @@ function autoMatchColumn(csvHeader: string): string {
     phone: ['phone', 'telephone', 'phonenumber', 'tel'],
     email: ['email', 'emailaddress', 'mail'],
     website: ['website', 'url', 'web', 'site', 'homepage'],
+    google_place_id: ['googleplaceid', 'placeid', 'place_id', 'google_place_id', 'googleplaces', 'gplaceid', 'places_id'],
     street_address: ['streetaddress', 'address', 'street', 'addr', 'address1'],
     zip_code: ['zipcode', 'zip', 'postalcode', 'postal'],
     description: ['description', 'desc', 'about', 'bio'],
