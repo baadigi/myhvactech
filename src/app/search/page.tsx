@@ -493,13 +493,18 @@ export default async function SearchPage({ searchParams }: Props) {
             )}
           </div>
 
-          {/* ── Map Placeholder (desktop) ──────────────────────────────────── */}
+          {/* ── Map (desktop) ──────────────────────────────────────────────── */}
           <div className="hidden xl:block w-80 shrink-0">
             <div className="sticky top-6">
-              <div className="bg-neutral-200 rounded-xl h-[520px] flex flex-col items-center justify-center text-neutral-500 border border-neutral-300">
-                <MapPin size={32} className="mb-3 text-neutral-400" aria-hidden="true" />
-                <p className="text-sm font-medium text-neutral-600">Map coming soon</p>
-                <p className="text-xs text-neutral-400 mt-1">Interactive map view</p>
+              <div className="rounded-xl h-[520px] overflow-hidden border border-neutral-200 shadow-sm">
+                <iframe
+                  title="Contractor locations"
+                  src={`https://maps.google.com/maps?q=commercial+hvac+${encodeURIComponent(city)}+${encodeURIComponent(state)}&z=11&output=embed`}
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  allowFullScreen
+                />
               </div>
             </div>
           </div>

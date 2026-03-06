@@ -120,6 +120,12 @@ export async function POST(request: NextRequest) {
     if (!body.state?.trim()) {
       return NextResponse.json({ error: 'State is required' }, { status: 422 })
     }
+    if (!body.email?.trim()) {
+      return NextResponse.json({ error: 'Business email is required' }, { status: 422 })
+    }
+    if (!body.phone?.trim()) {
+      return NextResponse.json({ error: 'Phone number is required' }, { status: 422 })
+    }
 
     // Check if this user already has a contractor profile
     const { data: existing } = await supabase

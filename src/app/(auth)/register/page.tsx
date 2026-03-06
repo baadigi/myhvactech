@@ -314,7 +314,7 @@ function Step1({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="phone" className={labelClass}>
-            Phone number
+            Phone number <span className="text-error">*</span>
           </label>
           <input
             id="phone"
@@ -322,12 +322,15 @@ function Step1({
             value={data.phone}
             onChange={(e) => onChange({ phone: e.target.value })}
             placeholder="(555) 000-0000"
-            className={inputClass}
+            className={[inputClass, errors.phone ? 'border-error focus:ring-error' : ''].join(' ')}
           />
+          {errors.phone && (
+            <p className="mt-1 text-xs text-error">{errors.phone}</p>
+          )}
         </div>
         <div>
           <label htmlFor="email" className={labelClass}>
-            Business email
+            Business email <span className="text-error">*</span>
           </label>
           <input
             id="email"
@@ -335,8 +338,11 @@ function Step1({
             value={data.email}
             onChange={(e) => onChange({ email: e.target.value })}
             placeholder="contact@yourcompany.com"
-            className={inputClass}
+            className={[inputClass, errors.email ? 'border-error focus:ring-error' : ''].join(' ')}
           />
+          {errors.email && (
+            <p className="mt-1 text-xs text-error">{errors.email}</p>
+          )}
         </div>
       </div>
 
@@ -1035,6 +1041,14 @@ export default function RegisterPage() {
     if (step === 1) {
       if (!formData.company_name.trim()) {
         newErrors.company_name = 'Company name is required'
+      }
+      if (!formData.email.trim()) {
+        newErrors.email = 'Business email is required'
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+        newErrors.email = 'Enter a valid email address'
+      }
+      if (!formData.phone.trim()) {
+        newErrors.phone = 'Phone number is required'
       }
       if (!formData.city.trim()) {
         newErrors.city = 'City is required'
