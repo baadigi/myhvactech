@@ -21,7 +21,7 @@ export default function SearchBar({
 }: SearchBarProps) {
   const router = useRouter()
   const [query, setQuery] = useState(defaultQuery)
-  const [city, setCity] = useState(defaultCity)
+  const [location, setLocation] = useState(defaultCity)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const queryInputRef = useRef<HTMLInputElement>(null)
@@ -36,7 +36,7 @@ export default function SearchBar({
     e.preventDefault()
     const params = new URLSearchParams()
     if (query.trim()) params.set('q', query.trim())
-    if (city.trim()) params.set('city', city.trim())
+    if (location.trim()) params.set('city', location.trim())
     router.push(`/search?${params.toString()}`)
     setShowSuggestions(false)
   }
@@ -146,9 +146,9 @@ export default function SearchBar({
           <input
             id="search-location"
             type="text"
-            placeholder="City or ZIP code"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
+            placeholder="City, state, or ZIP"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
             className={cn(
               'w-full rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-900 placeholder-neutral-400',
               'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white',
