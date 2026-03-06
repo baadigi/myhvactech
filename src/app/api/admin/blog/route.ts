@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Sorting
-    const validSortFields = ['created_at', 'published_at', 'view_count', 'updated_at', 'title']
+    const validSortFields = ['created_at', 'published_at', 'view_count', 'updated_at', 'title', 'scheduled_at']
     const sortField = validSortFields.includes(sort) ? sort : 'created_at'
     const ascending = order === 'asc'
 
@@ -118,6 +118,7 @@ export async function POST(request: NextRequest) {
       author_name = 'My HVAC Tech',
       meta_title,
       meta_description,
+      scheduled_at,
     } = body as {
       title: string
       body?: string
@@ -132,6 +133,7 @@ export async function POST(request: NextRequest) {
       author_name?: string
       meta_title?: string
       meta_description?: string
+      scheduled_at?: string | null
     }
 
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
@@ -184,6 +186,7 @@ export async function POST(request: NextRequest) {
       meta_description: finalMetaDescription,
       published_at: status === 'published' ? now : null,
       updated_at: now,
+      scheduled_at: scheduled_at || null,
     }
 
     const { data: post, error } = await db
@@ -239,6 +242,8 @@ export async function PATCH(request: NextRequest) {
       if (existingPost && !existingPost.published_at) {
         updates.published_at = new Date().toISOString()
       }
+      // Clear scheduled_at when manually publishing
+      updates.scheduled_at = null
     }
 
     // Always update the updated_at timestamp
@@ -249,7 +254,7 @@ export async function PATCH(request: NextRequest) {
       'title', 'slug', 'body', 'excerpt', 'category', 'tags',
       'cover_image_url', 'status', 'source_url', 'source_name',
       'is_auto_generated', 'author_name', 'meta_title', 'meta_description',
-      'published_at', 'updated_at',
+      'published_at', 'updated_at', 'scheduled_at',
     ]
 
     const sanitized: Record<string, unknown> = {}

@@ -12,6 +12,7 @@ interface BlogPost {
   created_at: string
   updated_at: string
   published_at: string | null
+  scheduled_at: string | null
   title: string
   slug: string
   excerpt: string | null
@@ -37,6 +38,7 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
   published: 'bg-green-50 text-green-700 border border-green-200',
   draft: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
   archived: 'bg-neutral-100 text-neutral-500 border border-neutral-200',
+  scheduled: 'bg-blue-50 text-blue-700 border border-blue-200',
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -44,6 +46,19 @@ const CATEGORY_LABELS: Record<string, string> = {
   'tips': 'Tips & Guides',
   'regulations': 'Regulations',
   'company-updates': 'Company Updates',
+}
+
+function getPostStatusLabel(post: BlogPost): string {
+  if (post.status === 'draft' && post.scheduled_at) {
+    return 'scheduled'
+  }
+  return post.status
+}
+
+function formatScheduledDate(dateStr: string): string {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+    ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -69,7 +84,7 @@ export default function AdminBlogPage() {
   const [bulkLoading, setBulkLoading] = useState(false)
 
   // Stats
-  const [stats, setStats] = useState({ total: 0, published: 0, drafts: 0, views: 0 })
+  const [stats, setStats] = useState({ total: 0, published: 0, drafts: 0, scheduled: 0, views: 0 })
 
   // Debounce search
   useEffect(() => {
@@ -112,7 +127,8 @@ export default function AdminBlogPage() {
       setStats({
         total: data.total || 0,
         published: allPosts.filter((p) => p.status === 'published').length,
-        drafts: allPosts.filter((p) => p.status === 'draft').length,
+        drafts: allPosts.filter((p) => p.status === 'draft' && !p.scheduled_at).length,
+        scheduled: allPosts.filter((p) => p.status === 'draft' && p.scheduled_at).length,
         views: allPosts.reduce((sum, p) => sum + (p.view_count || 0), 0),
       })
     } catch {
@@ -338,11 +354,12 @@ export default function AdminBlogPage() {
       )}
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         {[
           { label: 'Total Posts', value: stats.total, color: 'text-neutral-900' },
           { label: 'Published', value: stats.published, color: 'text-green-600' },
           { label: 'Drafts', value: stats.drafts, color: 'text-yellow-600' },
+          { label: 'Scheduled', value: stats.scheduled, color: 'text-blue-600' },
           { label: 'Total Views', value: stats.views.toLocaleString(), color: 'text-primary-600' },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-xl border border-neutral-200 shadow-sm px-4 py-3">
@@ -453,7 +470,7 @@ export default function AdminBlogPage() {
         ) : (
           <div>
             {/* Table header */}
-            <div className="hidden sm:grid sm:grid-cols-[32px_1fr_120px_100px_80px_80px_120px] gap-3 px-4 py-2.5 border-b border-neutral-100 bg-neutral-50 text-xs font-medium text-neutral-500 uppercase tracking-wide">
+            <div className="hidden sm:grid sm:grid-cols-[32px_1fr_120px_110px_80px_100px_120px] gap-3 px-4 py-2.5 border-b border-neutral-100 bg-neutral-50 text-xs font-medium text-neutral-500 uppercase tracking-wide">
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -471,112 +488,127 @@ export default function AdminBlogPage() {
             </div>
 
             {/* Rows */}
-            {posts.map((post) => (
-              <div
-                key={post.id}
-                className={[
-                  'grid grid-cols-1 sm:grid-cols-[32px_1fr_120px_100px_80px_80px_120px] gap-3 px-4 py-3 border-b border-neutral-50 hover:bg-neutral-50 transition-colors items-center',
-                  selectedIds.has(post.id) ? 'bg-primary-50/50' : '',
-                ].join(' ')}
-              >
-                {/* Checkbox */}
-                <div className="hidden sm:flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(post.id)}
-                    onChange={() => toggleSelect(post.id)}
-                    className="rounded border-neutral-300"
-                  />
-                </div>
+            {posts.map((post) => {
+              const statusLabel = getPostStatusLabel(post)
+              return (
+                <div
+                  key={post.id}
+                  className={[
+                    'grid grid-cols-1 sm:grid-cols-[32px_1fr_120px_110px_80px_100px_120px] gap-3 px-4 py-3 border-b border-neutral-50 hover:bg-neutral-50 transition-colors items-center',
+                    selectedIds.has(post.id) ? 'bg-primary-50/50' : '',
+                  ].join(' ')}
+                >
+                  {/* Checkbox */}
+                  <div className="hidden sm:flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(post.id)}
+                      onChange={() => toggleSelect(post.id)}
+                      className="rounded border-neutral-300"
+                    />
+                  </div>
 
-                {/* Title */}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <a
-                      href={`/admin/blog/new?id=${post.id}`}
-                      className="text-sm font-medium text-neutral-900 hover:text-primary-600 truncate transition-colors"
+                  {/* Title */}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        href={`/admin/blog/new?id=${post.id}`}
+                        className="text-sm font-medium text-neutral-900 hover:text-primary-600 truncate transition-colors"
+                      >
+                        {post.title}
+                      </a>
+                      {post.is_auto_generated && (
+                        <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-50 text-purple-600 border border-purple-100" title="Auto-generated">
+                          AI
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-400 truncate mt-0.5">/{post.slug}</p>
+                  </div>
+
+                  {/* Category */}
+                  <div>
+                    <Badge variant="service" className="text-[10px]">
+                      {CATEGORY_LABELS[post.category] || post.category}
+                    </Badge>
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <button
+                      onClick={() => handleToggleStatus(post)}
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold cursor-pointer transition-colors ${STATUS_BADGE_CLASSES[statusLabel] || STATUS_BADGE_CLASSES.draft}`}
+                      title={statusLabel === 'scheduled'
+                        ? `Scheduled for ${formatScheduledDate(post.scheduled_at!)}`
+                        : `Click to ${post.status === 'published' ? 'unpublish' : 'publish'}`
+                      }
                     >
-                      {post.title}
-                    </a>
-                    {post.is_auto_generated && (
-                      <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-50 text-purple-600 border border-purple-100" title="Auto-generated">
-                        AI
-                      </span>
+                      {statusLabel === 'scheduled' && (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-1" aria-hidden="true">
+                          <circle cx="12" cy="12" r="10"/>
+                          <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                      )}
+                      {statusLabel}
+                    </button>
+                    {statusLabel === 'scheduled' && post.scheduled_at && (
+                      <p className="text-[10px] text-blue-500 mt-0.5">{formatScheduledDate(post.scheduled_at)}</p>
                     )}
                   </div>
-                  <p className="text-xs text-neutral-400 truncate mt-0.5">/{post.slug}</p>
-                </div>
 
-                {/* Category */}
-                <div>
-                  <Badge variant="service" className="text-[10px]">
-                    {CATEGORY_LABELS[post.category] || post.category}
-                  </Badge>
-                </div>
+                  {/* Views */}
+                  <div className="text-sm text-neutral-600 tabular-nums">
+                    {(post.view_count || 0).toLocaleString()}
+                  </div>
 
-                {/* Status */}
-                <div>
-                  <button
-                    onClick={() => handleToggleStatus(post)}
-                    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold cursor-pointer transition-colors ${STATUS_BADGE_CLASSES[post.status] || STATUS_BADGE_CLASSES.draft}`}
-                    title={`Click to ${post.status === 'published' ? 'unpublish' : 'publish'}`}
-                  >
-                    {post.status}
-                  </button>
-                </div>
+                  {/* Date */}
+                  <div className="text-xs text-neutral-400">
+                    {post.published_at
+                      ? new Date(post.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
 
-                {/* Views */}
-                <div className="text-sm text-neutral-600 tabular-nums">
-                  {(post.view_count || 0).toLocaleString()}
-                </div>
-
-                {/* Date */}
-                <div className="text-xs text-neutral-400">
-                  {post.published_at
-                    ? new Date(post.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                    : new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center justify-end gap-1">
-                  <button
-                    onClick={() => router.push(`/admin/blog/new?id=${post.id}`)}
-                    className="p-1.5 rounded text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-                    title="Edit"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M12 20h9"/>
-                      <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z"/>
-                    </svg>
-                  </button>
-                  {post.status === 'published' && (
-                    <a
-                      href={`/blog/${post.slug}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => router.push(`/admin/blog/new?id=${post.id}`)}
                       className="p-1.5 rounded text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-                      title="Preview"
+                      title="Edit"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                        <polyline points="15 3 21 3 21 9"/>
-                        <line x1="10" x2="21" y1="14" y2="3"/>
+                        <path d="M12 20h9"/>
+                        <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.855z"/>
                       </svg>
-                    </a>
-                  )}
-                  <button
-                    onClick={() => handleDelete(post.id, post.title)}
-                    className="p-1.5 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                    title="Delete"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                    </svg>
-                  </button>
+                    </button>
+                    {post.status === 'published' && (
+                      <a
+                        href={`/blog/${post.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+                        title="Preview"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                          <polyline points="15 3 21 3 21 9"/>
+                          <line x1="10" x2="21" y1="14" y2="3"/>
+                        </svg>
+                      </a>
+                    )}
+                    <button
+                      onClick={() => handleDelete(post.id, post.title)}
+                      className="p-1.5 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      title="Delete"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
