@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
+import { SITE_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Get Free Quotes from Vetted Commercial HVAC Contractors | My HVAC Tech',
+  title: 'Get Free Quotes from Vetted Commercial HVAC Contractors',
   description:
     'Describe your property and HVAC needs. We\'ll match you with 2-3 vetted commercial contractors in your area. Free for property and facility managers.',
+  alternates: { canonical: `${SITE_URL}/get-quotes` },
   openGraph: {
     title: 'Get Free Quotes from Vetted Commercial HVAC Contractors',
     description:

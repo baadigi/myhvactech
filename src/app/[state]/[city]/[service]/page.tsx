@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronRight, Shield, Star, DollarSign, HelpCircle, Clock, CheckCircle, Search } from 'lucide-react'
-import { US_STATES, HVAC_SERVICES, SITE_NAME, SITE_URL } from '@/lib/constants'
+import { US_STATES, HVAC_SERVICES, SITE_URL } from '@/lib/constants'
 import { ServiceSchema, FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
@@ -129,9 +129,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!stateObj || !serviceObj) return { title: 'Not Found' }
 
+  // Noindex pages with fewer than 3 contractors to prevent thin content indexing
+  const contractors = await getContractorsForCityService(cityName, stateObj.abbr)
+  const shouldIndex = contractors.length >= 3
+
   return {
-    title: `${serviceObj.name} in ${cityName}, ${stateObj.abbr} | ${SITE_NAME}`,
+    title: `${serviceObj.name} in ${cityName}, ${stateObj.abbr}`,
     description: `Find the best ${serviceObj.name.toLowerCase()} contractors in ${cityName}, ${stateObj.abbr}. Compare verified reviews, pricing, and request free quotes from licensed professionals.`,
+    alternates: { canonical: `${SITE_URL}/${state}/${city}/${service}` },
+    ...(!shouldIndex && { robots: { index: false, follow: true } }),
     openGraph: {
       title: `${serviceObj.name} in ${cityName}, ${stateObj.abbr}`,
       description: `Top-rated ${serviceObj.name.toLowerCase()} contractors in ${cityName}. Verified reviews, free quotes.`,

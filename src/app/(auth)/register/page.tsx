@@ -13,6 +13,7 @@ import {
   DISPATCH_CRM_OPTIONS,
   US_STATES,
 } from '@/lib/constants'
+import { trackEvent } from '@/lib/analytics'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1100,6 +1101,10 @@ export default function RegisterPage() {
         return
       }
 
+      trackEvent('contractor_signup_completed', {
+        city: formData.city,
+        state: formData.state,
+      })
       router.push('/dashboard?registered=1')
     } catch {
       setSubmitError('An unexpected error occurred. Please try again.')

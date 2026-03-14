@@ -6,14 +6,15 @@ import {
   MapPin, Award, Filter, Clock, DollarSign,
   Users, Zap, Target
 } from 'lucide-react'
-import { SUBSCRIPTION_TIERS, SITE_NAME } from '@/lib/constants'
+import { SUBSCRIPTION_TIERS, SITE_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: `Get Commercial HVAC Leads from Property Managers | ${SITE_NAME}`,
+  title: 'Get Commercial HVAC Leads from Property Managers',
   description:
     'We route high-value quote requests from facility managers and property directors to vetted contractors. No residential leads. No tire-kickers. Claim your market slot.',
+  alternates: { canonical: `${SITE_URL}/for-contractors` },
   openGraph: {
-    title: 'Get Matched with Commercial Property Managers | My HVAC Tech',
+    title: 'Get Matched with Commercial Property Managers',
     description:
       'High-value leads from facility managers and property directors routed directly to verified commercial HVAC contractors.',
   },

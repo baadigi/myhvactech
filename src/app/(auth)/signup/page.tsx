@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
+import { trackEvent } from '@/lib/analytics'
 
 function SignupForm() {
   const searchParams = useSearchParams()
@@ -57,6 +58,7 @@ function SignupForm() {
     }
 
     setSuccess(true)
+    trackEvent('signup_started', { method: 'email' })
     setLoading(false)
   }
 

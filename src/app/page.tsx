@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { headers } from 'next/headers'
 import { Search, ClipboardList, CheckCircle, ShieldCheck, Star, MessageSquareDiff, Building2, BadgeCheck, Clock, Users } from 'lucide-react'
 import SearchBar from '@/components/SearchBar'
 import ContractorCard from '@/components/ContractorCard'
@@ -8,202 +9,6 @@ import { Button } from '@/components/ui/Button'
 import { HVAC_SERVICES, US_STATES } from '@/lib/constants'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Contractor, Service } from '@/lib/types'
-
-// ——————————————————————————————————————————
-// Static mock data for featured contractors
-// ——————————————————————————————————————————
-const MOCK_SERVICES: Service[] = [
-  { id: 's1', name: 'Commercial AC Repair', slug: 'commercial-ac-repair', category: 'Repair', description: null, icon: null },
-  { id: 's2', name: 'Rooftop Unit Service', slug: 'rooftop-unit-service', category: 'Maintenance', description: null, icon: null },
-  { id: 's3', name: 'Preventive Maintenance', slug: 'preventive-maintenance-plans', category: 'Maintenance', description: null, icon: null },
-  { id: 's4', name: 'Emergency HVAC Service', slug: 'emergency-hvac-service', category: 'Emergency', description: null, icon: null },
-]
-
-const MOCK_CONTRACTORS: (Contractor & { services: Service[] })[] = [
-  {
-    id: '1',
-    created_at: '2023-01-01',
-    updated_at: '2024-01-01',
-    owner_id: null,
-    company_name: 'Arctic Air Commercial HVAC',
-    slug: 'arctic-air-commercial-hvac',
-    description: 'Full-service commercial HVAC contractor serving the Phoenix metro area for over 20 years. Specialists in large-scale RTU systems, chilled water plants, and multi-site preventive maintenance agreements.',
-    short_description: 'Phoenix\'s top-rated commercial HVAC company. Specializing in rooftop units, chillers, and 24/7 emergency service for office buildings and retail.',
-    logo_url: null,
-    cover_image_url: null,
-    website: 'https://arcticairphoenix.com',
-    phone: '6025550100',
-    email: 'info@arcticairphoenix.com',
-    street_address: '4500 N 32nd St',
-    city: 'Phoenix',
-    state: 'AZ',
-    zip_code: '85018',
-    country: 'US',
-    location: null,
-    service_radius_miles: 60,
-    year_established: 2003,
-    license_number: 'ROC-123456',
-    insurance_verified: true,
-    is_verified: true,
-    is_claimed: true,
-    is_featured: true,
-    operating_hours: null,
-    subscription_tier: 'gold',
-    stripe_customer_id: null,
-    stripe_subscription_id: null,
-    subscription_status: 'active',
-    meta_title: null,
-    meta_description: null,
-    avg_rating: 4.8,
-    review_count: 143,
-    profile_views: 2400,
-    // Commercial fields
-    years_commercial_experience: 20,
-    commercial_verified: true,
-    system_types: ['rtu', 'chilled_water', 'ahu', 'split_system'],
-    brands_serviced: ['Carrier', 'Trane', 'Lennox', 'York'],
-    tonnage_range_min: 5,
-    tonnage_range_max: 500,
-    building_types_served: ['office', 'retail', 'industrial', 'mixed_use'],
-    emergency_response_minutes: 60,
-    offers_24_7: true,
-    sla_summary: '1-hour emergency response in Phoenix metro. 4-hour response for standard service calls. Guaranteed same-day for PM agreement customers.',
-    multi_site_coverage: true,
-    max_sites_supported: 25,
-    offers_service_agreements: true,
-    service_agreement_types: ['preventive_maintenance', 'full_service', 'emergency_only'],
-    dispatch_crm: 'ServiceTitan',
-    avg_quote_turnaround_hours: 4,
-    uses_gps_tracking: true,
-    num_technicians: 22,
-    num_nate_certified: 16,
-    metro_area: 'Phoenix-Mesa-Chandler, AZ',
-    slot_tier: 'exclusive',
-    services: [MOCK_SERVICES[0], MOCK_SERVICES[1], MOCK_SERVICES[2], MOCK_SERVICES[3]],
-  },
-  {
-    id: '2',
-    created_at: '2023-03-15',
-    updated_at: '2024-02-01',
-    owner_id: null,
-    company_name: 'Metro Cooling Solutions',
-    slug: 'metro-cooling-solutions',
-    description: 'Commercial HVAC experts serving Dallas and Fort Worth businesses. Deep experience in chiller systems, VRF installations, and multi-building campus contracts for healthcare and education clients.',
-    short_description: 'Dallas–Fort Worth commercial HVAC specialists. We handle everything from new system installations to complex chiller repairs for warehouses, hospitals, and office towers.',
-    logo_url: null,
-    cover_image_url: null,
-    website: null,
-    phone: '2145550187',
-    email: null,
-    street_address: '1200 Commerce St',
-    city: 'Dallas',
-    state: 'TX',
-    zip_code: '75202',
-    country: 'US',
-    location: null,
-    service_radius_miles: 80,
-    year_established: 2009,
-    license_number: 'TACLB-78901',
-    insurance_verified: true,
-    is_verified: true,
-    is_claimed: true,
-    is_featured: false,
-    operating_hours: null,
-    subscription_tier: 'silver',
-    stripe_customer_id: null,
-    stripe_subscription_id: null,
-    subscription_status: 'active',
-    meta_title: null,
-    meta_description: null,
-    avg_rating: 4.6,
-    review_count: 89,
-    profile_views: 1820,
-    // Commercial fields
-    years_commercial_experience: 15,
-    commercial_verified: true,
-    system_types: ['vrf', 'chilled_water', 'boiler', 'cooling_tower', 'ahu'],
-    brands_serviced: ['Daikin', 'Mitsubishi', 'Johnson Controls', 'Carrier', 'McQuay'],
-    tonnage_range_min: 10,
-    tonnage_range_max: 800,
-    building_types_served: ['healthcare', 'education', 'industrial', 'office', 'government'],
-    emergency_response_minutes: 90,
-    offers_24_7: true,
-    sla_summary: 'Guaranteed 90-minute emergency response across the DFW metro. 8-hour standard response window. Monthly PM visits for agreement customers.',
-    multi_site_coverage: true,
-    max_sites_supported: 15,
-    offers_service_agreements: true,
-    service_agreement_types: ['preventive_maintenance', 'full_service', 'parts_labor'],
-    dispatch_crm: 'BuildOps',
-    avg_quote_turnaround_hours: 6,
-    uses_gps_tracking: true,
-    num_technicians: 18,
-    num_nate_certified: 12,
-    metro_area: 'Dallas-Fort Worth-Arlington, TX',
-    slot_tier: 'preferred',
-    services: [MOCK_SERVICES[0], MOCK_SERVICES[2]],
-  },
-  {
-    id: '3',
-    created_at: '2022-06-01',
-    updated_at: '2024-03-01',
-    owner_id: null,
-    company_name: 'Coastal Climate Systems',
-    slug: 'coastal-climate-systems',
-    description: 'Miami\'s trusted commercial HVAC company serving South Florida since 2001. Specialists in humid-climate system design and maintenance for hotels, medical facilities, and large commercial portfolios.',
-    short_description: 'South Florida commercial HVAC experts with deep experience in humid-climate systems. Serving hotels, restaurants, medical facilities, and large commercial properties throughout Miami-Dade.',
-    logo_url: null,
-    cover_image_url: null,
-    website: null,
-    phone: '3055550234',
-    email: null,
-    street_address: '800 Brickell Ave',
-    city: 'Miami',
-    state: 'FL',
-    zip_code: '33131',
-    country: 'US',
-    location: null,
-    service_radius_miles: 50,
-    year_established: 2001,
-    license_number: 'CAC-1823456',
-    insurance_verified: true,
-    is_verified: true,
-    is_claimed: true,
-    is_featured: true,
-    operating_hours: null,
-    subscription_tier: 'gold',
-    stripe_customer_id: null,
-    stripe_subscription_id: null,
-    subscription_status: 'active',
-    meta_title: null,
-    meta_description: null,
-    avg_rating: 4.9,
-    review_count: 207,
-    profile_views: 3100,
-    // Commercial fields
-    years_commercial_experience: 23,
-    commercial_verified: true,
-    system_types: ['chilled_water', 'vrf', 'rtu', 'cooling_tower', 'ptac'],
-    brands_serviced: ['Carrier', 'Trane', 'Daikin', 'Bosch', 'Rheem/Ruud'],
-    tonnage_range_min: 5,
-    tonnage_range_max: 600,
-    building_types_served: ['hospitality', 'healthcare', 'restaurant', 'retail', 'multifamily', 'office'],
-    emergency_response_minutes: 45,
-    offers_24_7: true,
-    sla_summary: '45-minute emergency response in Miami-Dade. Priority dispatch for hospitality and medical clients. Bi-annual PM visits included in all service agreements.',
-    multi_site_coverage: true,
-    max_sites_supported: 30,
-    offers_service_agreements: true,
-    service_agreement_types: ['preventive_maintenance', 'full_service', 'parts_labor', 'emergency_only'],
-    dispatch_crm: 'ServiceTitan',
-    avg_quote_turnaround_hours: 3,
-    uses_gps_tracking: true,
-    num_technicians: 31,
-    num_nate_certified: 24,
-    metro_area: 'Miami-Fort Lauderdale-Pompano Beach, FL',
-    slot_tier: 'exclusive',
-    services: [MOCK_SERVICES[0], MOCK_SERVICES[1], MOCK_SERVICES[3]],
-  },
-]
 
 // ——————————————————————————————————————————
 // Testimonials from facility/property managers
@@ -334,10 +139,43 @@ async function getTopCities() {
   }
 }
 
-/** Fetch featured contractors from Supabase */
-async function getFeaturedContractors() {
+/** Fetch featured contractors from Supabase, prioritizing visitor's geo location */
+async function getFeaturedContractors(visitorState?: string, visitorCity?: string) {
   try {
     const db = createAdminClient()
+
+    // 1. Try city match first (if we have both city + state)
+    if (visitorCity && visitorState) {
+      const { data: cityMatch } = await db
+        .from('contractors')
+        .select('*')
+        .ilike('city', visitorCity)
+        .ilike('state', visitorState)
+        .neq('subscription_status', 'cancelled')
+        .order('review_count', { ascending: false })
+        .limit(3)
+
+      if (cityMatch && cityMatch.length >= 3) {
+        return cityMatch as (Contractor & { services: Service[] })[]
+      }
+    }
+
+    // 2. Fall back to state match
+    if (visitorState) {
+      const { data: stateMatch } = await db
+        .from('contractors')
+        .select('*')
+        .ilike('state', visitorState)
+        .neq('subscription_status', 'cancelled')
+        .order('review_count', { ascending: false })
+        .limit(3)
+
+      if (stateMatch && stateMatch.length >= 3) {
+        return stateMatch as (Contractor & { services: Service[] })[]
+      }
+    }
+
+    // 3. Fall back to top contractors nationally
     const { data, error } = await db
       .from('contractors')
       .select('*')
@@ -354,15 +192,16 @@ async function getFeaturedContractors() {
 }
 
 export default async function HomePage() {
-  const [topCities, featuredContractors] = await Promise.all([
-    getTopCities(),
-    getFeaturedContractors(),
-  ])
+  // Read Vercel geo headers to detect visitor location
+  const headersList = await headers()
+  const visitorCity = headersList.get('x-vercel-ip-city') || undefined
+  // Vercel sends state as region code (e.g. "CA", "TX")
+  const visitorState = headersList.get('x-vercel-ip-country-region') || undefined
 
-  // Use live contractors if available, otherwise fall back to mocks
-  const displayContractors = featuredContractors.length > 0
-    ? featuredContractors
-    : MOCK_CONTRACTORS
+  const [topCities, displayContractors] = await Promise.all([
+    getTopCities(),
+    getFeaturedContractors(visitorState, visitorCity),
+  ])
 
   const featuredServices = HVAC_SERVICES.slice(0, 6).map((s, i) => ({
     id: `svc-${i}`,
@@ -574,7 +413,9 @@ export default async function HomePage() {
                 className="text-2xl sm:text-3xl font-bold text-neutral-900 mb-2"
                 style={{ fontFamily: 'var(--font-plus-jakarta-sans, "Plus Jakarta Sans", sans-serif)' }}
               >
-                Featured Commercial HVAC Contractors
+                {visitorCity && visitorState
+                  ? `Commercial HVAC Contractors Near ${decodeURIComponent(visitorCity)}, ${visitorState}`
+                  : 'Featured Commercial HVAC Contractors'}
               </h2>
               <p className="text-neutral-500 text-base">
                 Commercially verified — screened for experience, SLAs, and real project portfolios

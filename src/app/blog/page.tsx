@@ -2,11 +2,13 @@ import Link from 'next/link'
 import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { Calendar, Clock, User, ArrowRight, Newspaper } from 'lucide-react'
+import { SITE_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'HVAC Industry News & Insights',
   description:
     'Stay informed on commercial HVAC industry news, tips, regulations, and best practices for property and facility managers.',
+  alternates: { canonical: `${SITE_URL}/blog` },
 }
 
 const CATEGORIES = [

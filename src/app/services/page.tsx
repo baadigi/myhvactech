@@ -4,11 +4,12 @@ import {
   Thermometer, Wind, Wrench, Settings, Building2, Zap,
   CheckCircle, ChevronRight, Search
 } from 'lucide-react'
-import { HVAC_SERVICES, SITE_NAME } from '@/lib/constants'
+import { HVAC_SERVICES, SITE_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: `Commercial HVAC Services | ${SITE_NAME}`,
+  title: 'Commercial HVAC Services',
   description: 'Browse all commercial HVAC services. Find licensed contractors for AC repair, chiller maintenance, rooftop unit service, emergency HVAC, and more.',
+  alternates: { canonical: `${SITE_URL}/services` },
   openGraph: {
     title: 'Commercial HVAC Services',
     description: 'Find licensed contractors for any commercial HVAC service.',

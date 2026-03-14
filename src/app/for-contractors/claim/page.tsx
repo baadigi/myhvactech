@@ -2,12 +2,13 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import { Search, Building2, ArrowRight, Shield } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { SITE_NAME } from '@/lib/constants'
+import { SITE_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: `Claim Your Listing | ${SITE_NAME}`,
+  title: 'Claim Your Listing',
   description:
     'Find and claim your commercial HVAC business listing on My HVAC Tech. Verify ownership to manage your profile, respond to reviews, and receive leads from property managers.',
+  alternates: { canonical: `${SITE_URL}/for-contractors/claim` },
 }
 
 interface Props {

@@ -5,7 +5,7 @@ import {
   Thermometer, Wind, Wrench, Settings, Building2, Zap,
   CheckCircle, ChevronRight, Search, MapPin, HelpCircle
 } from 'lucide-react'
-import { HVAC_SERVICES, US_STATES, SITE_NAME, SITE_URL } from '@/lib/constants'
+import { HVAC_SERVICES, SITE_URL } from '@/lib/constants'
 import { ServiceSchema, FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -78,8 +78,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!service) return { title: 'Not Found' }
 
   return {
-    title: `${service.name} Contractors | ${SITE_NAME}`,
+    title: `${service.name} Contractors`,
     description: `Find licensed ${service.name.toLowerCase()} contractors near you. Compare verified reviews, request free quotes, and hire certified commercial HVAC professionals.`,
+    alternates: { canonical: `${SITE_URL}/services/${service.slug}` },
     openGraph: {
       title: `${service.name} — Commercial HVAC Contractors`,
       description: `Find licensed ${service.name.toLowerCase()} contractors near you. Verified reviews, free quotes.`,

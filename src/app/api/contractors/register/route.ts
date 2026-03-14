@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { HVAC_SERVICES } from '@/lib/constants'
+import { sendNotification } from '@/lib/email'
 
 // ─── Slug generation ──────────────────────────────────────────────────────────
 
@@ -265,6 +266,33 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    await sendNotification({
+      subject: `[My HVAC Tech] New Contractor Registration: ${contractor.company_name}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #171717; color: white; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+            <h1 style="margin: 0; font-size: 20px; font-weight: 700;">New Contractor Registration</h1>
+            <p style="margin: 8px 0 0; color: #a3a3a3; font-size: 14px;">My HVAC Tech &middot; ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </div>
+          <div style="border: 1px solid #e5e5e5; border-top: none; padding: 24px 32px; border-radius: 0 0 12px 12px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tr><td style="padding: 8px 0; color: #737373; width: 130px;">Company</td><td style="padding: 8px 0; font-weight: 600;">${contractor.company_name}</td></tr>
+              <tr><td style="padding: 8px 0; color: #737373;">Location</td><td style="padding: 8px 0;">${body.city}, ${body.state} ${body.zip_code || ''}</td></tr>
+              <tr><td style="padding: 8px 0; color: #737373;">Email</td><td style="padding: 8px 0;"><a href="mailto:${body.email}" style="color: #0284c7;">${body.email}</a></td></tr>
+              <tr><td style="padding: 8px 0; color: #737373;">Phone</td><td style="padding: 8px 0;">${body.phone || 'Not provided'}</td></tr>
+              ${body.website ? `<tr><td style="padding: 8px 0; color: #737373;">Website</td><td style="padding: 8px 0;">${body.website}</td></tr>` : ''}
+              ${body.year_established ? `<tr><td style="padding: 8px 0; color: #737373;">Est.</td><td style="padding: 8px 0;">${body.year_established}</td></tr>` : ''}
+              ${body.num_technicians ? `<tr><td style="padding: 8px 0; color: #737373;">Technicians</td><td style="padding: 8px 0;">${body.num_technicians}</td></tr>` : ''}
+              <tr><td style="padding: 8px 0; color: #737373;">Profile</td><td style="padding: 8px 0;"><a href="https://myhvac.tech/contractors/${contractor.slug}" style="color: #0284c7;">View Profile</a></td></tr>
+            </table>
+            ${body.description ? `<hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" /><p style="font-size: 13px; color: #737373; margin-bottom: 4px;">Description:</p><p style="font-size: 14px; color: #404040; line-height: 1.6;">${body.description.slice(0, 300)}${body.description.length > 300 ? '...' : ''}</p>` : ''}
+            <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" />
+            <a href="https://myhvac.tech/admin/contractors" style="display: inline-block; background: #171717; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">View in Admin Panel</a>
+          </div>
+        </div>
+      `,
+    })
 
     return NextResponse.json(
       {

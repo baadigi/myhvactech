@@ -78,6 +78,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }
       }
 
+      // Count contractors per city for thin content gating
+      const cityContractorCount = new Map<string, number>()
+      for (const c of contractors) {
+        if (c.city && c.state) {
+          const key = `${c.city.toLowerCase()}|${c.state.toLowerCase()}`
+          cityContractorCount.set(key, (cityContractorCount.get(key) || 0) + 1)
+        }
+      }
+
       for (const { city, stateAbbr } of cityStateMap.values()) {
         // Find the full state name to build the state slug
         const stateObj = US_STATES.find(
@@ -87,6 +96,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
         const stateSlug = stateObj.name.toLowerCase().replace(/\s+/g, '-')
         const citySlug = city.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+        const count = cityContractorCount.get(`${city.toLowerCase()}|${stateAbbr.toLowerCase()}`) || 0
 
         // City page
         routes.push({
@@ -96,15 +106,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           priority: 0.7,
         })
 
-        // City + service pages
-        HVAC_SERVICES.forEach(service => {
-          routes.push({
-            url: `${SITE_URL}/${stateSlug}/${citySlug}/${service.slug}`,
-            lastModified: new Date(),
-            changeFrequency: 'weekly',
-            priority: 0.65,
+        // City + service pages — only include if 3+ contractors to avoid thin content
+        if (count >= 3) {
+          HVAC_SERVICES.forEach(service => {
+            routes.push({
+              url: `${SITE_URL}/${stateSlug}/${citySlug}/${service.slug}`,
+              lastModified: new Date(),
+              changeFrequency: 'weekly',
+              priority: 0.65,
+            })
           })
-        })
+        }
       }
     }
 

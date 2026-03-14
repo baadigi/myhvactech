@@ -1,9 +1,10 @@
 import { Metadata } from 'next'
-import { SUBSCRIPTION_TIERS, SITE_NAME } from '@/lib/constants'
+import { SUBSCRIPTION_TIERS, SITE_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: `Pricing Plans for HVAC Contractors | ${SITE_NAME}`,
+  title: 'Pricing Plans for HVAC Contractors',
   description: 'Choose the right plan for your commercial HVAC business. Start free, upgrade when you are ready.',
+  alternates: { canonical: `${SITE_URL}/for-contractors/pricing` },
 }
 
 export default function PricingPage() {

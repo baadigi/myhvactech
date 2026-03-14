@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, Building2, MapPin, Star } from 'lucide-react'
-import { SITE_NAME } from '@/lib/constants'
+import { SITE_URL } from '@/lib/constants'
 import { createAdminClient } from '@/lib/supabase/admin'
 import ContactForm from '@/components/ContactForm'
 
@@ -29,8 +29,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!contractor) return { title: 'Contractor Not Found' }
 
   return {
-    title: `Contact ${contractor.company_name} — ${contractor.city}, ${contractor.state} | ${SITE_NAME}`,
+    title: `Contact ${contractor.company_name} — ${contractor.city}, ${contractor.state}`,
     description: `Request a quote or contact ${contractor.company_name} in ${contractor.city}, ${contractor.state}. Get a response in as little as ${contractor.avg_quote_turnaround_hours ?? 4} hours.`,
+    alternates: { canonical: `${SITE_URL}/contractors/${slug}/contact` },
   }
 }
 

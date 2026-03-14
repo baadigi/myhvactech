@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/Badge'
 import RatingStars from '@/components/RatingStars'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import MapEmbed from '@/components/MapEmbed'
 
 type Tab = 'overview' | 'services' | 'reviews' | 'projects' | 'photos'
 
@@ -668,21 +669,20 @@ export default function ContractorProfileTabs({ contractor }: Props) {
             </h2>
             {(() => {
               const addressStr = contractor.google_formatted_address || `${contractor.street_address || ''} ${contractor.city}, ${contractor.state} ${contractor.zip_code || ''}`.trim()
-              const mapQuery = contractor.google_lat && contractor.google_lng
-                ? `${contractor.google_lat},${contractor.google_lng}`
-                : encodeURIComponent(addressStr)
+              const hasCoords = contractor.google_lat && contractor.google_lng
               return (
                 <div className="rounded-xl overflow-hidden border border-neutral-200">
-                  <iframe
-                    title={`Map of ${contractor.company_name}`}
-                    width="100%"
-                    height="260"
-                    style={{ border: 0, display: 'block' }}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    src={`https://maps.google.com/maps?q=${mapQuery}&z=14&output=embed`}
-                    allowFullScreen
-                  />
+                  {hasCoords ? (
+                    <MapEmbed
+                      lat={Number(contractor.google_lat)}
+                      lng={Number(contractor.google_lng)}
+                      label={contractor.company_name}
+                    />
+                  ) : (
+                    <div className="h-[260px] bg-neutral-100 flex items-center justify-center text-sm text-neutral-500">
+                      Map unavailable
+                    </div>
+                  )}
                   <div className="bg-white px-4 py-3">
                     <p className="text-sm font-medium text-neutral-700">{addressStr}</p>
                   </div>

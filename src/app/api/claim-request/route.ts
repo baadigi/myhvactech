@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendNotification } from '@/lib/email'
 
 // ─── POST /api/claim-request — Submit a claim for a contractor listing ───────
 
@@ -120,6 +121,32 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ error: 'Failed to submit claim' }, { status: 500 })
     }
+
+    await sendNotification({
+      subject: `[My HVAC Tech] New Claim Request: ${contactName} for ${contractor.company_name}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #171717; color: white; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+            <h1 style="margin: 0; font-size: 20px; font-weight: 700;">New Listing Claim Request</h1>
+            <p style="margin: 8px 0 0; color: #a3a3a3; font-size: 14px;">My HVAC Tech &middot; ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </div>
+          <div style="border: 1px solid #e5e5e5; border-top: none; padding: 24px 32px; border-radius: 0 0 12px 12px;">
+            <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
+              <span style="font-size: 14px; font-weight: 700; color: #0369a1;">Claiming: ${contractor.company_name}</span>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tr><td style="padding: 8px 0; color: #737373; width: 130px;">Name</td><td style="padding: 8px 0; font-weight: 600;">${contactName}</td></tr>
+              <tr><td style="padding: 8px 0; color: #737373;">Email</td><td style="padding: 8px 0;"><a href="mailto:${contactEmail}" style="color: #0284c7;">${contactEmail}</a></td></tr>
+              ${contactPhone ? `<tr><td style="padding: 8px 0; color: #737373;">Phone</td><td style="padding: 8px 0;">${contactPhone}</td></tr>` : ''}
+              ${jobTitle ? `<tr><td style="padding: 8px 0; color: #737373;">Title</td><td style="padding: 8px 0;">${jobTitle}</td></tr>` : ''}
+            </table>
+            ${message ? `<hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" /><p style="font-size: 13px; color: #737373; margin-bottom: 4px;">Message:</p><p style="font-size: 14px; color: #404040; line-height: 1.6; white-space: pre-wrap;">${message}</p>` : ''}
+            <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" />
+            <a href="https://myhvac.tech/admin/claims" style="display: inline-block; background: #171717; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">Review in Admin Panel</a>
+          </div>
+        </div>
+      `,
+    })
 
     return NextResponse.json({ success: true }, { status: 201 })
   } catch (err) {

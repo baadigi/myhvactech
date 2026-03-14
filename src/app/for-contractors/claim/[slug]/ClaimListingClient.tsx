@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { CheckCircle, AlertTriangle, Building2, MapPin, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { trackEvent } from '@/lib/analytics'
 
 interface ContractorInfo {
   id: string
@@ -90,6 +91,7 @@ export default function ClaimListingClient({ contractor }: { contractor: Contrac
       }
 
       setSuccess(true)
+      trackEvent('claim_request_submitted')
     } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {

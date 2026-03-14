@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Mail, MessageSquare, CheckCircle, AlertCircle, Loader2, Building2 } from 'lucide-react'
+import { trackEvent } from '@/lib/analytics'
 
 const CONTACT_REASONS = [
   { value: 'general', label: 'General Inquiry' },
@@ -49,6 +50,7 @@ export default function ContactPage() {
       }
 
       setSuccess(true)
+      trackEvent('contact_form_submitted', { form_reason: form.reason })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {

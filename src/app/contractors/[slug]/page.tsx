@@ -8,7 +8,7 @@ import {
   Building2, Thermometer, Wrench, Award, ShieldCheck, Users,
   AlertTriangle, ClipboardList, Timer, Cpu
 } from 'lucide-react'
-import { SITE_NAME, SITE_URL, SYSTEM_TYPES, SERVICE_AGREEMENT_TYPES } from '@/lib/constants'
+import { SITE_URL, SYSTEM_TYPES, SERVICE_AGREEMENT_TYPES } from '@/lib/constants'
 import type { Contractor, Review, ContractorPhoto, SampleProject, GoogleReview } from '@/lib/types'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -157,8 +157,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!contractor) return { title: 'Contractor Not Found' }
 
   return {
-    title: contractor.meta_title || `${contractor.company_name} — ${contractor.city}, ${contractor.state} | ${SITE_NAME}`,
+    title: contractor.meta_title
+      ? contractor.meta_title.replace(/\s*\|\s*My HVAC Tech\s*$/i, '')
+      : `${contractor.company_name} — ${contractor.city}, ${contractor.state}`,
     description: contractor.meta_description || `View profile, reviews, and contact information for ${contractor.company_name} in ${contractor.city}, ${contractor.state}. ${contractor.review_count} verified reviews.`,
+    alternates: { canonical: `${SITE_URL}/contractors/${slug}` },
     openGraph: {
       title: contractor.company_name,
       description: contractor.short_description || contractor.meta_description || '',

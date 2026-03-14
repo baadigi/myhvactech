@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-
-const NOTIFY_EMAIL = 'ryan@baadigi.com'
+import { sendNotification } from '@/lib/email'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,7 +56,6 @@ const VALID_BUILDING_TYPES = [
 export async function POST(request: NextRequest) {
   let body: QuoteRequestPayload
 
-  // Parse JSON body
   try {
     body = await request.json()
   } catch {
@@ -138,7 +136,6 @@ export async function POST(request: NextRequest) {
 
   if (dbError) {
     console.error('Quote request insert error:', dbError)
-    // Don't fail — still send notification
   }
 
   const quoteId = inserted?.id || `qr_${Date.now()}`
@@ -153,60 +150,41 @@ export async function POST(request: NextRequest) {
     planning_ahead: '🔮 Planning Ahead',
   }
 
-  console.log(`[QUOTE REQUEST] New quote from ${record.requestor_name} <${record.requestor_email}>`)
-  console.log(`  Building: ${record.building_type} | Service: ${record.service_type} | Location: ${record.property_city}, ${record.property_state}`)
-
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (supabaseUrl && serviceKey) {
-      await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${serviceKey}`,
-        },
-        body: JSON.stringify({
-          to: NOTIFY_EMAIL,
-          subject: `[My HVAC Tech] New Quote Request: ${record.building_type} ${record.service_type} in ${record.property_city || 'Unknown'}, ${record.property_state || ''}`,
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-              <div style="background: #171717; color: white; padding: 24px 32px; border-radius: 12px 12px 0 0;">
-                <h1 style="margin: 0; font-size: 20px; font-weight: 700;">New Quote Request</h1>
-                <p style="margin: 8px 0 0; color: #a3a3a3; font-size: 14px;">My HVAC Tech &middot; ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-              </div>
-              <div style="border: 1px solid #e5e5e5; border-top: none; padding: 24px 32px; border-radius: 0 0 12px 12px;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                  <tr><td style="padding: 8px 0; color: #737373; width: 130px;">Contact</td><td style="padding: 8px 0; font-weight: 600;">${record.requestor_name}</td></tr>
-                  <tr><td style="padding: 8px 0; color: #737373;">Email</td><td style="padding: 8px 0;"><a href="mailto:${record.requestor_email}" style="color: #0284c7;">${record.requestor_email}</a></td></tr>
-                  ${record.requestor_phone ? `<tr><td style="padding: 8px 0; color: #737373;">Phone</td><td style="padding: 8px 0;">${record.requestor_phone}</td></tr>` : ''}
-                  ${record.company_name ? `<tr><td style="padding: 8px 0; color: #737373;">Company</td><td style="padding: 8px 0;">${record.company_name}</td></tr>` : ''}
-                  ${record.requestor_title ? `<tr><td style="padding: 8px 0; color: #737373;">Title</td><td style="padding: 8px 0;">${record.requestor_title}</td></tr>` : ''}
-                </table>
-                <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" />
-                <h3 style="font-size: 14px; font-weight: 700; color: #171717; margin: 0 0 12px;">Project Details</h3>
-                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                  <tr><td style="padding: 8px 0; color: #737373; width: 130px;">Building Type</td><td style="padding: 8px 0; font-weight: 600;">${record.building_type}</td></tr>
-                  <tr><td style="padding: 8px 0; color: #737373;">Service Type</td><td style="padding: 8px 0;">${record.service_type}</td></tr>
-                  <tr><td style="padding: 8px 0; color: #737373;">Systems</td><td style="padding: 8px 0;">${record.system_types.join(', ') || 'Not specified'}</td></tr>
-                  ${record.property_sqft ? `<tr><td style="padding: 8px 0; color: #737373;">Sq Ft</td><td style="padding: 8px 0;">${Number(record.property_sqft).toLocaleString()}</td></tr>` : ''}
-                  ${record.num_units_rtus ? `<tr><td style="padding: 8px 0; color: #737373;">Units/RTUs</td><td style="padding: 8px 0;">${record.num_units_rtus}</td></tr>` : ''}
-                  <tr><td style="padding: 8px 0; color: #737373;">Location</td><td style="padding: 8px 0;">${[record.property_city, record.property_state, record.property_zip].filter(Boolean).join(', ') || 'Not provided'}</td></tr>
-                  ${record.budget_band ? `<tr><td style="padding: 8px 0; color: #737373;">Budget</td><td style="padding: 8px 0;">${record.budget_band}</td></tr>` : ''}
-                  <tr><td style="padding: 8px 0; color: #737373;">Timing</td><td style="padding: 8px 0;">${timingLabels[record.timing || ''] || record.timing || 'Not specified'}</td></tr>
-                </table>
-                ${record.current_issues ? `<hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" /><p style="font-size: 13px; color: #737373; margin-bottom: 4px;">Issues Described:</p><p style="font-size: 14px; color: #404040; line-height: 1.6; white-space: pre-wrap;">${record.current_issues}</p>` : ''}
-                <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" />
-                <a href="https://myhvac.tech/admin/leads" style="display: inline-block; background: #171717; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">View in Admin Panel</a>
-              </div>
-            </div>
-          `,
-        }),
-      }).catch(() => {})
-    }
-  } catch {
-    // Silently fail
-  }
+  await sendNotification({
+    subject: `[My HVAC Tech] New Quote Request: ${record.building_type} ${record.service_type} in ${record.property_city || 'Unknown'}, ${record.property_state || ''}`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #171717; color: white; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 700;">New Quote Request</h1>
+          <p style="margin: 8px 0 0; color: #a3a3a3; font-size: 14px;">My HVAC Tech &middot; ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        </div>
+        <div style="border: 1px solid #e5e5e5; border-top: none; padding: 24px 32px; border-radius: 0 0 12px 12px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr><td style="padding: 8px 0; color: #737373; width: 130px;">Contact</td><td style="padding: 8px 0; font-weight: 600;">${record.requestor_name}</td></tr>
+            <tr><td style="padding: 8px 0; color: #737373;">Email</td><td style="padding: 8px 0;"><a href="mailto:${record.requestor_email}" style="color: #0284c7;">${record.requestor_email}</a></td></tr>
+            ${record.requestor_phone ? `<tr><td style="padding: 8px 0; color: #737373;">Phone</td><td style="padding: 8px 0;">${record.requestor_phone}</td></tr>` : ''}
+            ${record.company_name ? `<tr><td style="padding: 8px 0; color: #737373;">Company</td><td style="padding: 8px 0;">${record.company_name}</td></tr>` : ''}
+            ${record.requestor_title ? `<tr><td style="padding: 8px 0; color: #737373;">Title</td><td style="padding: 8px 0;">${record.requestor_title}</td></tr>` : ''}
+          </table>
+          <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" />
+          <h3 style="font-size: 14px; font-weight: 700; color: #171717; margin: 0 0 12px;">Project Details</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr><td style="padding: 8px 0; color: #737373; width: 130px;">Building Type</td><td style="padding: 8px 0; font-weight: 600;">${record.building_type}</td></tr>
+            <tr><td style="padding: 8px 0; color: #737373;">Service Type</td><td style="padding: 8px 0;">${record.service_type}</td></tr>
+            <tr><td style="padding: 8px 0; color: #737373;">Systems</td><td style="padding: 8px 0;">${record.system_types.join(', ') || 'Not specified'}</td></tr>
+            ${record.property_sqft ? `<tr><td style="padding: 8px 0; color: #737373;">Sq Ft</td><td style="padding: 8px 0;">${Number(record.property_sqft).toLocaleString()}</td></tr>` : ''}
+            ${record.num_units_rtus ? `<tr><td style="padding: 8px 0; color: #737373;">Units/RTUs</td><td style="padding: 8px 0;">${record.num_units_rtus}</td></tr>` : ''}
+            <tr><td style="padding: 8px 0; color: #737373;">Location</td><td style="padding: 8px 0;">${[record.property_city, record.property_state, record.property_zip].filter(Boolean).join(', ') || 'Not provided'}</td></tr>
+            ${record.budget_band ? `<tr><td style="padding: 8px 0; color: #737373;">Budget</td><td style="padding: 8px 0;">${record.budget_band}</td></tr>` : ''}
+            <tr><td style="padding: 8px 0; color: #737373;">Timing</td><td style="padding: 8px 0;">${timingLabels[record.timing || ''] || record.timing || 'Not specified'}</td></tr>
+          </table>
+          ${record.current_issues ? `<hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" /><p style="font-size: 13px; color: #737373; margin-bottom: 4px;">Issues Described:</p><p style="font-size: 14px; color: #404040; line-height: 1.6; white-space: pre-wrap;">${record.current_issues}</p>` : ''}
+          <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" />
+          <a href="https://myhvac.tech/admin/leads" style="display: inline-block; background: #171717; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">View in Admin Panel</a>
+        </div>
+      </div>
+    `,
+  })
 
   return NextResponse.json(
     {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { HVAC_SERVICES } from '@/lib/constants'
+import { trackEvent } from '@/lib/analytics'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 
@@ -102,6 +103,11 @@ export default function ContactForm({
       }
 
       setSuccess(true)
+      trackEvent('lead_submitted', {
+        contractor_name: contractorName,
+        urgency: form.urgency,
+        service_needed: form.service_needed || 'not_specified',
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     } finally {

@@ -12,6 +12,7 @@ import {
   US_STATES,
 } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { trackEvent } from '@/lib/analytics'
 
 // ─── Metadata (exported separately for server metadata, page is 'use client') ──
 // See metadata export at bottom
@@ -911,6 +912,11 @@ export default function GetQuotesPage() {
       }
 
       setSubmitted(true)
+      trackEvent('quote_request_submitted', {
+        building_type: form.building_type,
+        service_type: form.service_type,
+        timing: form.timing || 'not_specified',
+      })
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
