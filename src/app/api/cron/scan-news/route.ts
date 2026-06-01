@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// Vercel Cron or manual trigger with secret
 function validateCron(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
@@ -47,6 +48,54 @@ function generateSlug(title: string): string {
     .replace(/^(.{0,80})-.*$/, '$1')
 }
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+interface QA {
+  q: string
+  a: string
+}
+
+// Assemble the final post body in the National LLM-SEO format:
+// Section 1: Q&A direct answers (featured snippets / AI Overviews)
+// Section 2: E-E-A-T body (HTML from the model)
+// Section 3: FAQs + an internal-linking CTA, plus embedded FAQPage JSON-LD
+function buildBody(qa: QA[], eeatBodyHtml: string, faqs: QA[]): string {
+  const qaHtml = qa.length
+    ? `<h2>Quick Answers for Property &amp; Facility Managers</h2>\n` +
+      qa.map((p) => `<h3>${escapeHtml(p.q)}</h3>\n<p>${p.a}</p>`).join('\n')
+    : ''
+
+  const faqHtml = faqs.length
+    ? `<h2>Frequently Asked Questions</h2>\n` +
+      faqs.map((f) => `<h3>${escapeHtml(f.q)}</h3>\n<p>${f.a}</p>`).join('\n')
+    : ''
+
+  // Guaranteed internal links to hubs that always exist — keyword-rich anchors, no orphan pages.
+  const ctaHtml = `<h2>Find a Qualified Commercial HVAC Contractor</h2>
+<p>Need help acting on this? Browse vetted <a href="/contractors">commercial HVAC contractors</a> in your area, or explore <a href="/services">commercial HVAC services</a> like preventive maintenance, retrofits, and emergency repair. Are you a contractor? <a href="/for-contractors">List your business on My HVAC Tech</a> to reach property and facility managers actively searching for help.</p>`
+
+  // FAQPage JSON-LD embedded in the body so it ships in the served HTML (crawler-readable).
+  const faqSchema = faqs.length
+    ? `<script type="application/ld+json">${JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faqs.map((f) => ({
+          '@type': 'Question',
+          name: stripHtml(f.q),
+          acceptedAnswer: { '@type': 'Answer', text: stripHtml(f.a) },
+        })),
+      })}</script>`
+    : ''
+
+  return [qaHtml, eeatBodyHtml, faqHtml, ctaHtml, faqSchema].filter(Boolean).join('\n\n')
+}
+
 export async function GET(request: NextRequest) {
   if (!validateCron(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -55,17 +104,15 @@ export async function GET(request: NextRequest) {
   try {
     const db = createAdminClient()
 
-    // Get existing post slugs to avoid duplicates
-    const { data: existingPosts } = await db
-      .from('blog_posts')
-      .select('slug, source_url')
+    // Existing posts for de-duplication
+    const { data: existingPosts } = await db.from('blog_posts').select('slug, source_url')
 
     const existingSlugs = new Set((existingPosts ?? []).map((p: { slug: string }) => p.slug))
     const existingSourceUrls = new Set(
       (existingPosts ?? []).map((p: { source_url: string | null }) => p.source_url).filter(Boolean)
     )
 
-    // Step 1: Discover news
+    // Step 1: Discover recent, real, sourced HVAC news (no fabricated data — Perplexity cites sources)
     const scanPrompt = `You are a commercial HVAC industry news scanner. Find the 5 most important and recent commercial HVAC news stories from the past 7 days.
 
 Focus on:
@@ -109,108 +156,133 @@ Only return the JSON array, nothing else. Only include stories from the last 7 d
     try {
       const jsonMatch = scanResult.match(/\[[\s\S]*\]/)
       if (!jsonMatch) {
-        return NextResponse.json({ success: true, message: 'No parseable results', drafts_created: 0 })
+        return NextResponse.json({ success: true, message: 'No parseable results', published: 0 })
       }
       stories = JSON.parse(jsonMatch[0])
     } catch {
       console.error('Failed to parse Perplexity news scan:', scanResult.slice(0, 500))
-      return NextResponse.json({ success: true, message: 'Parse error', drafts_created: 0 })
+      return NextResponse.json({ success: true, message: 'Parse error', published: 0 })
     }
 
-    // Filter out duplicates
-    const newStories = stories.filter(s => {
+    // De-dupe against what we already have
+    const newStories = stories.filter((s) => {
       const slug = generateSlug(s.headline)
       return !existingSlugs.has(slug) && (!s.source_url || !existingSourceUrls.has(s.source_url))
     })
 
     if (newStories.length === 0) {
-      return NextResponse.json({ success: true, message: 'No new stories found', drafts_created: 0 })
+      return NextResponse.json({ success: true, message: 'No new stories found', published: 0 })
     }
 
-    // Step 2: Generate full articles
-    const inserted = []
-    for (const story of newStories.slice(0, 3)) {
-      try {
-        const articlePrompt = `Write a comprehensive blog article about this commercial HVAC news story for an audience of property managers and facility managers (NOT technicians or homeowners).
+    // Step 2: Generate ONE article per run (cadence handles frequency), in the National LLM-SEO format.
+    const story = newStories[0]
+
+    const articlePrompt = `Write a blog article about this commercial HVAC news story for property managers and facility managers (NOT technicians or homeowners), following a strict 3-section structure for AI search and featured snippets.
 
 HEADLINE: ${story.headline}
 SUMMARY: ${story.summary}
 SOURCE: ${story.source_name || 'Industry reports'}
 
-Requirements:
-- Title should be SEO-optimized and include relevant keywords
-- Write 600-1000 words
-- Use HTML formatting (h2, h3, p, ul, li, strong tags)
-- Frame everything through the lens of "what does this mean for building owners and facility managers?"
-- Include practical action items or recommendations
-- Mention specific equipment types, tonnage ranges, or building types where relevant
-- End with a call-to-action directing readers to find qualified commercial HVAC contractors
-- Include a meta description (under 160 characters) for SEO
-- Write a short excerpt (2-3 sentences)
-
-Return in this exact JSON format:
+Return ONLY valid JSON in this exact shape:
 {
-  "title": "SEO-optimized title",
+  "title": "SEO-optimized H1 title with the primary keyword",
+  "meta_title": "Under 60 chars, primary keyword first",
+  "meta_description": "Under 160 chars, compelling, includes primary keyword",
   "excerpt": "2-3 sentence excerpt for card display",
-  "meta_description": "Under 160 chars for SEO",
-  "body": "<h2>...</h2><p>...</p>...",
+  "qa": [
+    { "q": "The core highest-volume question a property manager would ask", "a": "Direct 40-60 word answer optimized for a featured snippet. May include <strong> tags." },
+    { "q": "A second authority/friction-reducing question", "a": "Direct 40-60 word answer." }
+  ],
+  "body_html": "<h2>Descriptive heading</h2><p>...</p>... The in-depth E-E-A-T body: 600-900 words, HTML only (h2,h3,p,ul,li,strong). Frame everything as 'what does this mean for building owners and facility managers?'. Reference real bodies (ASHRAE, DOE, EPA) where relevant. Include practical action items, equipment types, tonnage ranges, or building types. Use descriptive, keyword-relevant headings — never generic.",
+  "faqs": [
+    { "q": "Expert FAQ targeting a national search / AI follow-up", "a": "50-100 word authoritative answer covering cost/ROI, compliance, risks, or buyer criteria." }
+  ],
   "tags": ["tag1", "tag2", "tag3", "tag4"]
 }
 
-Only return the JSON, nothing else.`
+Requirements:
+- Provide 2-3 items in "qa" and 4-6 items in "faqs".
+- All headings descriptive and keyword-relevant.
+- Authoritative, accurate, conversion-aware tone. Do not invent statistics — only state facts supported by the source or well-established industry standards.
+- Output JSON only, no markdown fences.`
 
-        const articleResult = await callPerplexity([
-          {
-            role: 'system',
-            content: 'You are a commercial HVAC industry writer for My HVAC Tech, the commercial HVAC marketplace for property and facility managers. Write authoritative, SEO-optimized content. Return only valid JSON.',
-          },
-          { role: 'user', content: articlePrompt },
-        ])
+    const articleResult = await callPerplexity([
+      {
+        role: 'system',
+        content:
+          'You are a commercial HVAC industry writer for My HVAC Tech, the commercial HVAC marketplace for property and facility managers. Write authoritative, accurate, SEO-optimized content. Never fabricate data. Return only valid JSON.',
+      },
+      { role: 'user', content: articlePrompt },
+    ])
 
-        const jsonMatch = articleResult.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) continue
-        const article = JSON.parse(jsonMatch[0])
+    const jsonMatch = articleResult.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      return NextResponse.json({ success: true, message: 'Article generation returned no JSON', published: 0 })
+    }
 
-        const slug = generateSlug(article.title || story.headline)
-        if (existingSlugs.has(slug)) continue
+    let article: {
+      title?: string
+      meta_title?: string
+      meta_description?: string
+      excerpt?: string
+      qa?: QA[]
+      body_html?: string
+      faqs?: QA[]
+      tags?: string[]
+    }
+    try {
+      article = JSON.parse(jsonMatch[0])
+    } catch {
+      console.error('Failed to parse generated article:', articleResult.slice(0, 500))
+      return NextResponse.json({ success: true, message: 'Article parse error', published: 0 })
+    }
 
-        const { data, error } = await db
-          .from('blog_posts')
-          .insert({
-            title: article.title || story.headline,
-            slug,
-            excerpt: article.excerpt || story.summary,
-            body: article.body || '',
-            category: story.category || 'industry-news',
-            tags: article.tags || story.tags || [],
-            status: 'draft',
-            is_auto_generated: true,
-            source_url: story.source_url,
-            source_name: story.source_name,
-            author_name: 'My HVAC Tech',
-            author_email: 'info@myhvac.tech',
-            meta_description: article.meta_description || (article.excerpt ? article.excerpt.slice(0, 160) : null),
-          })
-          .select('id, title, slug, status')
-          .single()
+    const title = article.title || story.headline
+    const slug = generateSlug(title)
+    if (existingSlugs.has(slug)) {
+      return NextResponse.json({ success: true, message: 'Duplicate slug, skipped', published: 0 })
+    }
 
-        if (!error && data) {
-          inserted.push(data)
-          existingSlugs.add(slug)
-        }
-      } catch (err) {
-        console.error('Failed to generate article for:', story.headline, err)
-      }
+    const body = buildBody(article.qa || [], article.body_html || '', article.faqs || [])
+    const now = new Date().toISOString()
+
+    // Step 3: Auto-publish (status='published') — this is the autopilot.
+    const { data, error } = await db
+      .from('blog_posts')
+      .insert({
+        title,
+        slug,
+        excerpt: article.excerpt || story.summary,
+        body,
+        category: story.category || 'industry-news',
+        tags: article.tags || story.tags || [],
+        status: 'published',
+        published_at: now,
+        is_auto_generated: true,
+        source_url: story.source_url,
+        source_name: story.source_name,
+        author_name: 'My HVAC Tech',
+        author_email: 'info@myhvac.tech',
+        meta_title: article.meta_title || title,
+        meta_description:
+          article.meta_description || (article.excerpt ? article.excerpt.slice(0, 160) : null),
+      })
+      .select('id, title, slug, status')
+      .single()
+
+    if (error) {
+      console.error('Failed to publish article:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      message: `Created ${inserted.length} draft article(s)`,
-      drafts_created: inserted.length,
-      posts: inserted,
+      message: 'Published 1 article',
+      published: 1,
+      post: data,
     })
   } catch (err) {
-    console.error('Cron news scan error:', err)
+    console.error('Scan-news cron error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
