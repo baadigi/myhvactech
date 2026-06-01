@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/scan-news",
-      "schedule": "0 13 * * *"
+      "schedule": "0 13 */3 * *"
     }
   ]
 }
