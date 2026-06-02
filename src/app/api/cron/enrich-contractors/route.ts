@@ -67,17 +67,21 @@ Location: ${c.city || 'Unknown'}, ${c.state || 'CA'}
 Website content (may be empty):
 """${siteText || '(no website content available)'}"""
 
-Return ONLY this JSON object. Infer fields from the website content; if unknown, use empty array / false / null — DO NOT invent specifics not supported by the content or the company name.
+Return ONLY this JSON object.
+
+For "system_types" and "building_types_served": fill these with the systems and building types a commercial HVAC/mechanical contractor of this kind in this metro TYPICALLY services — commercial mechanical shops routinely handle rooftop units, air handlers, chillers and boilers, and serve office, retail and industrial buildings — so include those even if the website does not spell them out. Pick the 3-6 most likely for this specific contractor.
+
+For "offers_24_7", "multi_site_coverage", "offers_service_agreements", "service_agreement_types", "sla_summary", and "brands_serviced": these are specific operational claims — set them ONLY when the website explicitly supports them. Otherwise use false / [] / null. Never invent a specific certification, SLA, or brand.
 
 {
-  "system_types": [],            // subset of: ${SYSTEM_TYPES.join(', ')}
-  "building_types_served": [],   // subset of: ${BUILDING_TYPES.join(', ')}
+  "system_types": [],            // 3-6 from: ${SYSTEM_TYPES.join(', ')}
+  "building_types_served": [],   // 3-6 from: ${BUILDING_TYPES.join(', ')}
   "offers_24_7": false,
   "multi_site_coverage": false,
   "offers_service_agreements": false,
   "service_agreement_types": [], // subset of: ${SERVICE_AGREEMENT_TYPES.join(', ')}
-  "sla_summary": null,           // one short sentence, or null
-  "brands_serviced": [],         // brand names if mentioned (e.g. Carrier, Trane, York)
+  "sla_summary": null,           // one short sentence, only if website-supported, else null
+  "brands_serviced": [],         // brand names ONLY if mentioned on site (e.g. Carrier, Trane, York)
   "full_description": "",        // 200-350 words, facility-manager angle, weave in city + commercial HVAC + the system/building types above. Open with the most compelling concrete fact.
   "short_description": "",       // 150-160 chars for the card, include city
   "meta_description": ""         // 150-160 chars SEO, include company + city + CTA
