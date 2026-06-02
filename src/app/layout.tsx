@@ -86,6 +86,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link rel="dns-prefetch" href="https://dcxiruohzhbftqwpvhxo.supabase.co" />
         <link rel="preconnect" href="https://dcxiruohzhbftqwpvhxo.supabase.co" />
+        {/* Ahrefs Web Analytics */}
+        <script
+          src="https://analytics.ahrefs.com/analytics.js"
+          data-key="nLoB3u2alpDMkqvtuEtv8A"
+          async
+        />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="lazyOnload"
