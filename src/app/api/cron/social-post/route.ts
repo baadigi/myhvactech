@@ -96,6 +96,14 @@ Write one caption (~50-90 words) for Facebook / Instagram / Pinterest / Threads 
   return text.includes(url) ? text : `${text}\n\n${url}`
 }
 
+function mimeFromUrl(url: string): string {
+  const ext = (url.split('?')[0].split('.').pop() || '').toLowerCase()
+  if (ext === 'png') return 'image/png'
+  if (ext === 'webp') return 'image/webp'
+  if (ext === 'gif') return 'image/gif'
+  return 'image/jpeg'
+}
+
 async function createPost(token: string, locationId: string, accountIds: string[], summary: string, imageUrl: string) {
   const res = await fetch(`${GHL_BASE}/social-media-posting/${locationId}/posts`, {
     method: 'POST',
@@ -103,7 +111,7 @@ async function createPost(token: string, locationId: string, accountIds: string[
     body: JSON.stringify({
       accountIds,
       summary,
-      media: [{ url: imageUrl }],
+      media: [{ url: imageUrl, type: mimeFromUrl(imageUrl) }],
       status: 'published',
       type: 'post',
     }),
