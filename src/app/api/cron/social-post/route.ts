@@ -157,8 +157,14 @@ export async function GET(request: NextRequest) {
   }
 
   // ?debug=1 — just show what's connected, post nothing
-  if (debug) {
+  if (debug === '1') {
     return NextResponse.json({ debug: true, connected: accounts })
+  }
+  // ?debug=users — raw users response (to find a userId / check scope)
+  if (debug === 'users') {
+    const ur = await fetch(`${GHL_BASE}/users/?locationId=${locationId}`, { headers: ghlHeaders(token) })
+    const raw = await ur.text()
+    return NextResponse.json({ debug: 'users', status: ur.status, body: raw.slice(0, 800) })
   }
 
   // ?only=facebook,instagram — restrict to given platforms (default: all)
