@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { Calendar, Clock, User, ArrowRight, Newspaper } from 'lucide-react'
@@ -174,10 +175,12 @@ export default async function BlogListingPage({
                     {/* Cover Image or Gradient Placeholder */}
                     <div className="relative h-48 overflow-hidden">
                       {post.cover_image_url ? (
-                        <img
+                        <Image
                           src={post.cover_image_url}
                           alt={post.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 384px"
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-primary-100 via-primary-50 to-sky-100 flex items-center justify-center">
