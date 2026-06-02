@@ -37,8 +37,20 @@ async function getAccountIds(token: string, locationId: string): Promise<string[
   })
   if (!res.ok) throw new Error(`GHL accounts ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const data = await res.json()
-  const accounts = data.accounts || data.results || []
-  return accounts.map((a: { id?: string; _id?: string }) => a.id || a._id).filter(Boolean)
+  // GHL has nested the accounts array under different keys across versions —
+  // dig for the first array we can find; surface the raw shape if we can't.
+  const arr =
+    (Array.isArray(data) && data) ||
+    (Array.isArray(data.accounts) && data.accounts) ||
+    (Array.isArray(data.results) && data.results) ||
+    (Array.isArray(data?.results?.accounts) && data.results.accounts) ||
+    (Array.isArray(data?.data) && data.data) ||
+    (Array.isArray(data?.data?.accounts) && data.data.accounts) ||
+    null
+  if (!arr) throw new Error(`GHL accounts shape: ${JSON.stringify(data).slice(0, 400)}`)
+  return arr
+    .map((a: { id?: string; _id?: string; accountId?: string }) => a.id || a._id || a.accountId)
+    .filter(Boolean)
 }
 
 interface Post {
