@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendNotification } from '@/lib/email'
+import { pushLeadToGHL } from '@/lib/ghl'
 
 // ─── POST /api/claim-request — Submit a claim for a contractor listing ───────
 
@@ -146,6 +147,15 @@ export async function POST(request: NextRequest) {
           </div>
         </div>
       `,
+    })
+
+    await pushLeadToGHL({
+      name: contactName,
+      email: contactEmail,
+      phone: contactPhone,
+      companyName: contractor.company_name,
+      source: 'myhvac.tech listing claim',
+      tags: ['directory-contractor'],
     })
 
     return NextResponse.json({ success: true }, { status: 201 })

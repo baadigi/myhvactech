@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { HVAC_SERVICES } from '@/lib/constants'
 import { sendNotification } from '@/lib/email'
+import { pushLeadToGHL } from '@/lib/ghl'
 
 // ─── Slug generation ──────────────────────────────────────────────────────────
 
@@ -292,6 +293,16 @@ export async function POST(request: NextRequest) {
           </div>
         </div>
       `,
+    })
+
+    await pushLeadToGHL({
+      companyName: body.company_name?.trim() || null,
+      email: body.email?.trim() || null,
+      phone: body.phone?.trim() || null,
+      city: body.city?.trim() || null,
+      state: body.state?.trim() || null,
+      source: 'myhvac.tech contractor registration',
+      tags: ['directory-contractor'],
     })
 
     return NextResponse.json(

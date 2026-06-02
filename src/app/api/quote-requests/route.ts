@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendNotification } from '@/lib/email'
+import { pushLeadToGHL } from '@/lib/ghl'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -184,6 +185,17 @@ export async function POST(request: NextRequest) {
         </div>
       </div>
     `,
+  })
+
+  await pushLeadToGHL({
+    name: record.requestor_name,
+    email: record.requestor_email,
+    phone: record.requestor_phone,
+    companyName: record.company_name,
+    city: record.property_city,
+    state: record.property_state,
+    source: `myhvac.tech quote request (${record.service_type})`,
+    tags: ['directory-lead'],
   })
 
   return NextResponse.json(
