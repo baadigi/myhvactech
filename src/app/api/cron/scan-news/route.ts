@@ -320,12 +320,15 @@ ${ARTICLE_JSON_SHAPE}`
 // topic, writes a keyword-targeted post, publishes it, and marks the topic done.
 // Returns a result object, or null if the queue is empty (caller falls back to news).
 async function tryGenerateFromQueue(
-  db: ReturnType<typeof createAdminClient>
+  db: ReturnType<typeof createAdminClient>,
+  category: string | null = null
 ): Promise<Record<string, unknown> | null> {
-  const { data: topicRows } = await db
+  let q = db
     .from('blog_topics')
     .select('id, primary_keyword, category, target_city, location_page_path')
     .eq('status', 'queued')
+  if (category) q = q.eq('category', category)
+  const { data: topicRows } = await q
     .order('priority', { ascending: false })
     .order('created_at', { ascending: true })
     .limit(1)
@@ -458,10 +461,24 @@ export async function GET(request: NextRequest) {
   try {
     const db = createAdminClient()
 
-    // Keyword queue takes priority over fresh news. If a topic is queued, write
-    // that and return; otherwise fall through to the news scan below.
-    const queued = await tryGenerateFromQueue(db)
-    if (queued) return NextResponse.json(queued)
+    // Weekly category rotation (cron runs Mon-Sat): Mon News, Tue Tips, Wed Regs,
+    // Thu Company, Fri Tips, Sat News  => News 2 / Tips 2 / Regs 1 / Company 1.
+    // Tips & Regulations come from the keyword queue; News & Company from the live scan.
+    const CATEGORY_BY_DAY: Record<number, string> = {
+      1: 'industry-news', 2: 'tips', 3: 'regulations', 4: 'company-updates', 5: 'tips', 6: 'industry-news', 0: 'tips',
+    }
+    const target = CATEGORY_BY_DAY[new Date().getUTCDay()] || 'tips'
+
+    if (target === 'tips' || target === 'regulations') {
+      // Prefer the targeted category; if its queue is empty, take any queued topic.
+      const queued = (await tryGenerateFromQueue(db, target)) || (await tryGenerateFromQueue(db, null))
+      if (queued) return NextResponse.json(queued)
+      // Nothing queued at all → fall through to the news scan below.
+    }
+    const newsFocus =
+      target === 'company-updates'
+        ? '\nPRIORITIZE manufacturer and company news: product launches, acquisitions, partnerships, earnings, leadership changes, and recalls from Carrier, Trane, Daikin, Lennox, York, Mitsubishi, Johnson Controls, Rheem, and Bosch.'
+        : ''
 
     // Existing posts for de-duplication
     const { data: existingPosts } = await db.from('blog_posts').select('slug, source_url')
@@ -472,7 +489,7 @@ export async function GET(request: NextRequest) {
     )
 
     // Step 1: Discover recent, real, sourced HVAC news (no fabricated data — Perplexity cites sources)
-    const scanPrompt = `You are a commercial HVAC industry news scanner. Find the 5 most important and recent commercial HVAC news stories from the past 7 days.
+    const scanPrompt = `You are a commercial HVAC industry news scanner. Find the 5 most important and recent commercial HVAC news stories from the past 7 days.${newsFocus}
 
 Focus on:
 - Product recalls affecting commercial equipment
@@ -634,7 +651,7 @@ Requirements:
         excerpt: article.excerpt || story.summary,
         body,
         cover_image_url: coverImageUrl,
-        category: story.category || 'industry-news',
+        category: target === 'company-updates' ? 'company-updates' : story.category || 'industry-news',
         tags: article.tags || story.tags || [],
         status: 'published',
         published_at: now,
