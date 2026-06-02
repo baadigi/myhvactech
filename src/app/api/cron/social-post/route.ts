@@ -31,7 +31,9 @@ function ghlHeaders(token: string) {
   }
 }
 
-async function getAccountIds(token: string, locationId: string): Promise<string[]> {
+interface GhlAccount { id: string; platform: string }
+
+async function getAccounts(token: string, locationId: string): Promise<GhlAccount[]> {
   const res = await fetch(`${GHL_BASE}/social-media-posting/${locationId}/accounts`, {
     headers: ghlHeaders(token),
   })
@@ -49,8 +51,11 @@ async function getAccountIds(token: string, locationId: string): Promise<string[
     null
   if (!arr) throw new Error(`GHL accounts shape: ${JSON.stringify(data).slice(0, 400)}`)
   return arr
-    .map((a: { id?: string; _id?: string; accountId?: string }) => a.id || a._id || a.accountId)
-    .filter(Boolean)
+    .map((a: { id?: string; _id?: string; accountId?: string; platform?: string; type?: string }) => ({
+      id: (a.id || a._id || a.accountId) as string,
+      platform: (a.platform || a.type || '').toLowerCase(),
+    }))
+    .filter((a: GhlAccount) => a.id)
 }
 
 interface Post {
@@ -118,14 +123,28 @@ export async function GET(request: NextRequest) {
   if (!apiKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEY not set' }, { status: 500 })
 
   const db = createAdminClient()
+  const { searchParams } = new URL(request.url)
+  const debug = searchParams.get('debug')
+  const only = (searchParams.get('only') || '').toLowerCase().split(',').map((s) => s.trim()).filter(Boolean)
 
-  let accountIds: string[]
+  let accounts: GhlAccount[]
   try {
-    accountIds = await getAccountIds(token, locationId)
+    accounts = await getAccounts(token, locationId)
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'accounts fetch failed' }, { status: 502 })
   }
-  if (accountIds.length === 0) return NextResponse.json({ error: 'No connected GHL social accounts' }, { status: 422 })
+
+  // ?debug=1 — just show what's connected, post nothing
+  if (debug) {
+    return NextResponse.json({ debug: true, connected: accounts })
+  }
+
+  // ?only=facebook,instagram — restrict to given platforms (default: all)
+  const selected = only.length ? accounts.filter((a) => only.includes(a.platform)) : accounts
+  const accountIds = selected.map((a) => a.id)
+  if (accountIds.length === 0) {
+    return NextResponse.json({ error: 'No matching GHL social accounts', connected: accounts }, { status: 422 })
+  }
 
   // Stream 1: newest published blog never shared (must have an image for IG/Pinterest)
   const { data: fresh } = await db
