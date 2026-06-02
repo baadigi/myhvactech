@@ -27,7 +27,7 @@ async function callPerplexity(
   messages: PerplexityMessage[],
   model = 'sonar-pro',
   maxTokens = 4000
-): Promise<string> {
+): Promise<{ content: string; citations: string[] }> {
   const apiKey = process.env.PERPLEXITY_API_KEY
   if (!apiKey) throw new Error('PERPLEXITY_API_KEY not configured')
 
@@ -46,7 +46,15 @@ async function callPerplexity(
   }
 
   const data = await res.json()
-  return data.choices?.[0]?.message?.content || ''
+  const content = data.choices?.[0]?.message?.content || ''
+  // Perplexity returns the real sources it used (top-level `citations`, or
+  // `search_results[].url` on newer responses). We render these as outbound links.
+  const citations: string[] = Array.isArray(data.citations)
+    ? data.citations
+    : Array.isArray(data.search_results)
+      ? data.search_results.map((r: { url?: string }) => r.url).filter(Boolean)
+      : []
+  return { content, citations }
 }
 
 function generateSlug(title: string): string {
@@ -174,20 +182,67 @@ interface QA {
 // Section 1: Q&A direct answers (featured snippets / AI Overviews)
 // Section 2: E-E-A-T body (HTML from the model)
 // Section 3: FAQs + an internal-linking CTA, plus embedded FAQPage JSON-LD
-function buildBody(qa: QA[], eeatBodyHtml: string, faqs: QA[]): string {
+function hostnameOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return 'source'
+  }
+}
+
+function buildBody(
+  qa: QA[],
+  eeatBodyHtml: string,
+  faqs: QA[],
+  sources: string[],
+  relatedLinks: { slug: string; title: string }[]
+): string {
   const qaHtml = qa.length
     ? `<h2>Quick Answers for Property &amp; Facility Managers</h2>\n` +
       qa.map((p) => `<h3>${escapeHtml(p.q)}</h3>\n<p>${p.a}</p>`).join('\n')
     : ''
 
+  // FAQs as native <details>/<summary> accordions — collapsible UX, but the answer
+  // text stays in the served HTML so crawlers + AI engines still read it.
   const faqHtml = faqs.length
     ? `<h2>Frequently Asked Questions</h2>\n` +
-      faqs.map((f) => `<h3>${escapeHtml(f.q)}</h3>\n<p>${f.a}</p>`).join('\n')
+      faqs
+        .map(
+          (f) =>
+            `<details class="faq-item border-b border-neutral-200 py-3"><summary class="font-semibold cursor-pointer">${escapeHtml(
+              f.q
+            )}</summary><div class="mt-2 text-neutral-700"><p>${f.a}</p></div></details>`
+        )
+        .join('\n')
+    : ''
+
+  // Contextual internal links to other posts (pillar/cluster, keyword-rich anchors).
+  const relatedHtml = relatedLinks.length
+    ? `<h2>Related Reading on My HVAC Tech</h2>\n<ul>\n` +
+      relatedLinks
+        .map((r) => `<li><a href="/blog/${r.slug}">${escapeHtml(r.title)}</a></li>`)
+        .join('\n') +
+      `\n</ul>`
     : ''
 
   // Guaranteed internal links to hubs that always exist — keyword-rich anchors, no orphan pages.
   const ctaHtml = `<h2>Find a Qualified Commercial HVAC Contractor</h2>
 <p>Need help acting on this? Browse vetted <a href="/contractors">commercial HVAC contractors</a> in your area, or explore <a href="/services">commercial HVAC services</a> like preventive maintenance, retrofits, and emergency repair. Are you a contractor? <a href="/for-contractors">List your business on My HVAC Tech</a> to reach property and facility managers actively searching for help.</p>`
+
+  // Real outbound source links from Perplexity's citations (deduped, nofollow).
+  const uniqueSources = Array.from(new Set(sources.filter(Boolean))).slice(0, 6)
+  const sourcesHtml = uniqueSources.length
+    ? `<h2>Sources</h2>\n<ol>\n` +
+      uniqueSources
+        .map(
+          (u) =>
+            `<li><a href="${u}" target="_blank" rel="nofollow noopener">${escapeHtml(
+              hostnameOf(u)
+            )}</a></li>`
+        )
+        .join('\n') +
+      `\n</ol>`
+    : ''
 
   // FAQPage JSON-LD embedded in the body so it ships in the served HTML (crawler-readable).
   const faqSchema = faqs.length
@@ -202,7 +257,9 @@ function buildBody(qa: QA[], eeatBodyHtml: string, faqs: QA[]): string {
       })}</script>`
     : ''
 
-  return [qaHtml, eeatBodyHtml, faqHtml, ctaHtml, faqSchema].filter(Boolean).join('\n\n')
+  return [qaHtml, eeatBodyHtml, faqHtml, relatedHtml, ctaHtml, sourcesHtml, faqSchema]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 export async function GET(request: NextRequest) {
@@ -248,7 +305,7 @@ For each story, provide in this exact JSON format:
 
 Only return the JSON array, nothing else. Only include stories from the last 7 days. If you can't find 5 recent stories, return fewer.`
 
-    const scanResult = await callPerplexity([
+    const { content: scanResult } = await callPerplexity([
       { role: 'system', content: 'You are a commercial HVAC industry news analyst. Return only valid JSON.' },
       { role: 'user', content: scanPrompt },
     ])
@@ -315,7 +372,7 @@ Requirements:
 - Authoritative, accurate, conversion-aware tone. Do not invent statistics — only state facts supported by the source or well-established industry standards.
 - Output JSON only, no markdown fences.`
 
-    const articleResult = await callPerplexity([
+    const { content: articleResult, citations: articleCitations } = await callPerplexity([
       {
         role: 'system',
         content:
@@ -359,7 +416,19 @@ Requirements:
       `auto/${slug}.png`
     )
     const bodyWithImages = await insertInlineImages(db, article.body_html || '', slug, title, 3)
-    const body = buildBody(article.qa || [], bodyWithImages, article.faqs || [])
+
+    // Internal links: pull 2 recent published posts (excluding this one) for a
+    // related-reading cluster with keyword-rich anchors.
+    const { data: relatedRows } = await db
+      .from('blog_posts')
+      .select('slug, title')
+      .eq('status', 'published')
+      .neq('slug', slug)
+      .order('published_at', { ascending: false })
+      .limit(2)
+    const relatedLinks = (relatedRows || []) as { slug: string; title: string }[]
+
+    const body = buildBody(article.qa || [], bodyWithImages, article.faqs || [], articleCitations, relatedLinks)
 
     const now = new Date().toISOString()
 
