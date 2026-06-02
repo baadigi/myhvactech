@@ -6,13 +6,15 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
-// Vercel Cron or manual trigger with secret
+// Vercel Cron or manual trigger with secret.
+// Vercel's scheduler does NOT send an Authorization header unless CRON_SECRET
+// is set, so we also accept its x-vercel-cron header and vercel-cron user-agent.
 function validateCron(request: NextRequest): boolean {
-  const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
+  const authHeader = request.headers.get('authorization')
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true
-  const vercelCron = request.headers.get('x-vercel-cron')
-  if (vercelCron) return true
+  if (request.headers.get('x-vercel-cron')) return true
+  if ((request.headers.get('user-agent') || '').toLowerCase().includes('vercel-cron')) return true
   return false
 }
 
