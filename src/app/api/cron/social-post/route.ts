@@ -1,0 +1,164 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { SITE_URL } from '@/lib/constants'
+
+// Auto-posts to social (FB / Instagram / Pinterest / Threads) via GHL Social
+// Planner. Stream 1: share any newly-published blog. Stream 2 (fallback): on
+// days with no new blog, recycle an older published post with a fresh caption
+// so the feed stays active. Posts to ALL connected GHL accounts (fetched at
+// runtime), so any platform you add later is included automatically.
+export const maxDuration = 120
+export const dynamic = 'force-dynamic'
+
+const GHL_BASE = 'https://services.leadconnectorhq.com'
+const GHL_VERSION = '2021-07-28'
+
+function validateCron(request: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET
+  const auth = request.headers.get('authorization')
+  if (secret && auth === `Bearer ${secret}`) return true
+  if (request.headers.get('x-vercel-cron')) return true
+  if ((request.headers.get('user-agent') || '').toLowerCase().includes('vercel-cron')) return true
+  return false
+}
+
+function ghlHeaders(token: string) {
+  return {
+    Authorization: `Bearer ${token}`,
+    Version: GHL_VERSION,
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  }
+}
+
+async function getAccountIds(token: string, locationId: string): Promise<string[]> {
+  const res = await fetch(`${GHL_BASE}/social-media-posting/${locationId}/accounts`, {
+    headers: ghlHeaders(token),
+  })
+  if (!res.ok) throw new Error(`GHL accounts ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  const data = await res.json()
+  const accounts = data.accounts || data.results || []
+  return accounts.map((a: { id?: string; _id?: string }) => a.id || a._id).filter(Boolean)
+}
+
+interface Post {
+  id: string
+  title: string
+  slug: string
+  excerpt: string | null
+  category: string
+  cover_image_url: string | null
+  social_share_count: number | null
+}
+
+async function writeCaption(post: Post, apiKey: string, recycle: boolean): Promise<string> {
+  const url = `${SITE_URL}/blog/${post.slug}`
+  const sys = `You write punchy social captions for MyHVAC.Tech — a commercial HVAC directory for property managers and facility managers (NOT homeowners). Voice: helpful, professional, a little punchy. No emojis-spam (1-2 max). Return ONLY the caption text.`
+  const user = `${recycle ? 'Recycle this older article with a fresh angle' : 'Announce this new article'}:
+Title: ${post.title}
+Category: ${post.category}
+Excerpt: ${post.excerpt || ''}
+Link to include at the end: ${url}
+
+Write one caption (~50-90 words) for Facebook / Instagram / Pinterest / Threads aimed at facility & property managers. Lead with a hook or a useful takeaway, then the link, then 3-5 relevant hashtags (commercial HVAC focused). Plain text only.`
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 400,
+      system: sys,
+      messages: [{ role: 'user', content: user }],
+    }),
+  })
+  if (!res.ok) throw new Error(`Claude ${res.status}`)
+  const data = await res.json()
+  const text = data.content?.[0]?.text?.trim()
+  if (!text) throw new Error('empty caption')
+  return text.includes(url) ? text : `${text}\n\n${url}`
+}
+
+async function createPost(token: string, locationId: string, accountIds: string[], summary: string, imageUrl: string) {
+  const res = await fetch(`${GHL_BASE}/social-media-posting/${locationId}/posts`, {
+    method: 'POST',
+    headers: ghlHeaders(token),
+    body: JSON.stringify({
+      accountIds,
+      summary,
+      media: [{ url: imageUrl }],
+      status: 'published',
+      type: 'post',
+    }),
+  })
+  const body = await res.text()
+  if (!res.ok) throw new Error(`GHL post ${res.status}: ${body.slice(0, 300)}`)
+  return body
+}
+
+export async function GET(request: NextRequest) {
+  if (!validateCron(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const token = process.env.GHL_API_TOKEN
+  const locationId = process.env.GHL_LOCATION_ID
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!token || !locationId) return NextResponse.json({ error: 'GHL_API_TOKEN / GHL_LOCATION_ID not set' }, { status: 500 })
+  if (!apiKey) return NextResponse.json({ error: 'ANTHROPIC_API_KEY not set' }, { status: 500 })
+
+  const db = createAdminClient()
+
+  let accountIds: string[]
+  try {
+    accountIds = await getAccountIds(token, locationId)
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'accounts fetch failed' }, { status: 502 })
+  }
+  if (accountIds.length === 0) return NextResponse.json({ error: 'No connected GHL social accounts' }, { status: 422 })
+
+  // Stream 1: newest published blog never shared (must have an image for IG/Pinterest)
+  const { data: fresh } = await db
+    .from('blog_posts')
+    .select('id, title, slug, excerpt, category, cover_image_url, social_share_count')
+    .eq('status', 'published')
+    .is('social_posted_at', null)
+    .not('cover_image_url', 'is', null)
+    .order('published_at', { ascending: false })
+    .limit(1)
+
+  let target = (fresh && fresh[0]) as Post | undefined
+  let recycle = false
+
+  // Stream 2: nothing new → recycle the least-recently-shared older post
+  if (!target) {
+    const { data: old } = await db
+      .from('blog_posts')
+      .select('id, title, slug, excerpt, category, cover_image_url, social_share_count')
+      .eq('status', 'published')
+      .not('cover_image_url', 'is', null)
+      .order('social_share_count', { ascending: true })
+      .order('published_at', { ascending: true })
+      .limit(1)
+    target = (old && old[0]) as Post | undefined
+    recycle = true
+  }
+
+  if (!target) return NextResponse.json({ posted: false, reason: 'no eligible posts' })
+
+  try {
+    const caption = await writeCaption(target, apiKey, recycle)
+    await createPost(token, locationId, accountIds, caption, target.cover_image_url as string)
+
+    const upd: Record<string, unknown> = { social_share_count: (target.social_share_count || 0) + 1 }
+    if (!recycle) upd.social_posted_at = new Date().toISOString()
+    await db.from('blog_posts').update(upd).eq('id', target.id)
+
+    return NextResponse.json({
+      posted: true,
+      mode: recycle ? 'recycle' : 'new',
+      post: target.slug,
+      accounts: accountIds.length,
+    })
+  } catch (e) {
+    return NextResponse.json({ posted: false, error: e instanceof Error ? e.message : 'post failed', post: target.slug }, { status: 502 })
+  }
+}
