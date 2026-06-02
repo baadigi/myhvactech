@@ -160,6 +160,11 @@ export async function GET(request: NextRequest) {
   if (debug === '1') {
     return NextResponse.json({ debug: true, connected: accounts })
   }
+  // ?debug=raw — full raw accounts response (to read profile names/urls)
+  if (debug === 'raw') {
+    const rr = await fetch(`${GHL_BASE}/social-media-posting/${locationId}/accounts`, { headers: ghlHeaders(token) })
+    return NextResponse.json({ debug: 'raw', status: rr.status, body: (await rr.text()).slice(0, 2500) })
+  }
 
   // ?only=facebook,instagram — restrict to given platforms (default: all)
   const selected = only.length ? accounts.filter((a) => only.includes(a.platform)) : accounts
