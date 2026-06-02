@@ -56,6 +56,58 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+// Generate a photoreal hero image (OpenAI gpt-image-1), store it in the public
+// `blog-images` bucket, and return its public URL. Returns null on any failure
+// so the post still publishes (text-only) rather than breaking the autopilot.
+async function generateAndStoreHeroImage(
+  db: ReturnType<typeof createAdminClient>,
+  title: string,
+  slug: string
+): Promise<string | null> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    console.warn('OPENAI_API_KEY not configured — publishing without hero image')
+    return null
+  }
+
+  try {
+    const prompt = `Professional, photorealistic editorial hero image for a commercial HVAC industry article titled "${title}". Show modern commercial HVAC equipment such as rooftop units (RTUs), chillers, or a clean commercial mechanical room on or inside a commercial building. Bright, well-lit, high quality. No text, no words, no logos, no watermarks, no recognizable faces. Wide 3:2 landscape composition.`
+
+    const res = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-image-1', prompt, size: '1536x1024', n: 1 }),
+    })
+
+    if (!res.ok) {
+      console.error('Image generation failed:', res.status, (await res.text()).slice(0, 300))
+      return null
+    }
+
+    const data = await res.json()
+    const b64 = data?.data?.[0]?.b64_json
+    if (!b64) return null
+
+    const buffer = Buffer.from(b64, 'base64')
+    const path = `auto/${slug}.png`
+
+    const { error: upErr } = await db.storage
+      .from('blog-images')
+      .upload(path, buffer, { contentType: 'image/png', upsert: true })
+
+    if (upErr) {
+      console.error('Hero image upload failed:', upErr)
+      return null
+    }
+
+    const { data: pub } = db.storage.from('blog-images').getPublicUrl(path)
+    return pub?.publicUrl || null
+  } catch (err) {
+    console.error('Hero image step error:', err)
+    return null
+  }
+}
+
 interface QA {
   q: string
   a: string
@@ -244,9 +296,13 @@ Requirements:
     }
 
     const body = buildBody(article.qa || [], article.body_html || '', article.faqs || [])
+
+    // Step 3: Generate the hero image (gpt-image-1) and store it. Non-fatal if it fails.
+    const coverImageUrl = await generateAndStoreHeroImage(db, title, slug)
+
     const now = new Date().toISOString()
 
-    // Step 3: Auto-publish (status='published') — this is the autopilot.
+    // Step 4: Auto-publish (status='published') — this is the autopilot.
     const { data, error } = await db
       .from('blog_posts')
       .insert({
@@ -254,6 +310,7 @@ Requirements:
         slug,
         excerpt: article.excerpt || story.summary,
         body,
+        cover_image_url: coverImageUrl,
         category: story.category || 'industry-news',
         tags: article.tags || story.tags || [],
         status: 'published',
