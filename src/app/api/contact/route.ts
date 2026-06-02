@@ -66,6 +66,7 @@ export async function POST(request: Request) {
       companyName: company?.trim() || null,
       source: `myhvac.tech contact (${reason || 'general'})`,
       tags: ['directory-lead'],
+      note: `📨 Contact form\nReason: ${reason || 'general'}\nCompany: ${company?.trim() || '—'}\n\n${message.trim()}`,
     })
 
     return NextResponse.json({ success: true }, { status: 201 })

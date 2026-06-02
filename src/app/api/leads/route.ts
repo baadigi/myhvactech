@@ -134,6 +134,15 @@ export async function POST(request: Request) {
       companyName: company_name || null,
       source: `myhvac.tech lead (${source || 'directory'})`,
       tags: ['directory-lead'],
+      note: [
+        `📩 Lead via contractor profile`,
+        service_needed ? `Service: ${service_needed}` : null,
+        urgency ? `Urgency: ${urgency}` : null,
+        building_type ? `Building: ${building_type}` : null,
+        preferred_contact ? `Prefers: ${preferred_contact}` : null,
+        landing_page ? `Page: ${landing_page}` : null,
+        message ? `\n${message}` : null,
+      ].filter(Boolean).join('\n'),
     })
 
     return NextResponse.json({ success: true, lead_id: lead.id }, { status: 201 })

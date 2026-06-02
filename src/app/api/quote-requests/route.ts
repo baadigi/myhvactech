@@ -196,6 +196,19 @@ export async function POST(request: NextRequest) {
     state: record.property_state,
     source: `myhvac.tech quote request (${record.service_type})`,
     tags: ['directory-lead'],
+    note: [
+      `🧾 Quote request`,
+      `Service: ${record.service_type}`,
+      `Building: ${record.building_type}`,
+      record.property_sqft ? `Sq ft: ${record.property_sqft}` : null,
+      record.num_buildings ? `Buildings: ${record.num_buildings}` : null,
+      record.num_units_rtus ? `Units/RTUs: ${record.num_units_rtus}` : null,
+      record.system_types?.length ? `Systems: ${record.system_types.join(', ')}` : null,
+      record.timing ? `Timing: ${record.timing}` : null,
+      record.budget_band ? `Budget: ${record.budget_band}` : null,
+      (record.property_city || record.property_state) ? `Location: ${record.property_city || ''} ${record.property_state || ''} ${record.property_zip || ''}`.trim() : null,
+      record.current_issues ? `\nIssues: ${record.current_issues}` : null,
+    ].filter(Boolean).join('\n'),
   })
 
   return NextResponse.json(
