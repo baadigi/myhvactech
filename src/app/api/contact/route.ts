@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendNotification } from '@/lib/email'
+import { pushLeadToGHL } from '@/lib/ghl'
 
 export async function POST(request: Request) {
   try {
@@ -57,6 +58,14 @@ export async function POST(request: Request) {
           </div>
         </div>
       `,
+    })
+
+    await pushLeadToGHL({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      companyName: company?.trim() || null,
+      source: `myhvac.tech contact (${reason || 'general'})`,
+      tags: ['directory-lead'],
     })
 
     return NextResponse.json({ success: true }, { status: 201 })
