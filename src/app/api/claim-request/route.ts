@@ -156,6 +156,12 @@ export async function POST(request: NextRequest) {
       companyName: contractor.company_name,
       source: 'myhvac.tech listing claim',
       tags: ['directory-contractor'],
+      note: [
+        `🔑 Listing claim request`,
+        `Claiming: ${contractor.company_name}`,
+        jobTitle ? `Title: ${jobTitle}` : null,
+        message ? `\n${message}` : null,
+      ].filter(Boolean).join('\n'),
     })
 
     return NextResponse.json({ success: true }, { status: 201 })

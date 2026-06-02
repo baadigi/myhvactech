@@ -18,6 +18,7 @@ export interface GhlLead {
   tags: string[]
   city?: string | null
   state?: string | null
+  note?: string | null
 }
 
 function splitName(full?: string | null): { firstName: string; lastName: string } {
@@ -69,6 +70,31 @@ export async function pushLeadToGHL(lead: GhlLead): Promise<boolean> {
     if (!res.ok) {
       console.error('GHL lead push failed:', res.status, (await res.text()).slice(0, 200))
       return false
+    }
+
+    // Attach the full submission as a note so the whole inquiry lives in GHL.
+    if (lead.note) {
+      try {
+        const data = await res.json()
+        const contactId = data?.contact?.id || data?.id
+        if (contactId) {
+          await fetch(`${GHL_BASE}/contacts/${contactId}/notes`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Version: GHL_VERSION,
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              body: lead.note,
+              userId: process.env.GHL_USER_ID || undefined,
+            }),
+          })
+        }
+      } catch (noteErr) {
+        console.error('GHL note attach error:', noteErr)
+      }
     }
     return true
   } catch (err) {

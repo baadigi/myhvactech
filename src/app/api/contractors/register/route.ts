@@ -303,6 +303,13 @@ export async function POST(request: NextRequest) {
       state: body.state?.trim() || null,
       source: 'myhvac.tech contractor registration',
       tags: ['directory-contractor'],
+      note: [
+        `🏢 Contractor self-registered`,
+        `Company: ${body.company_name?.trim() || '—'}`,
+        `Location: ${body.city?.trim() || ''}, ${body.state?.trim() || ''} ${body.zip_code || ''}`.trim(),
+        body.website ? `Website: ${body.website}` : null,
+        `Listing: https://myhvac.tech/contractors/${contractor.slug}`,
+      ].filter(Boolean).join('\n'),
     })
 
     return NextResponse.json(
