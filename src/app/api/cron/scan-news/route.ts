@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// One run does up to 2 Perplexity calls + 4 image generations sequentially,
+// so give the function plenty of headroom (Vercel Pro allows up to 300s).
+export const maxDuration = 300
+export const dynamic = 'force-dynamic'
+
 // Vercel Cron or manual trigger with secret
 function validateCron(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization')
@@ -16,7 +21,11 @@ interface PerplexityMessage {
   content: string
 }
 
-async function callPerplexity(messages: PerplexityMessage[], model = 'sonar-pro'): Promise<string> {
+async function callPerplexity(
+  messages: PerplexityMessage[],
+  model = 'sonar-pro',
+  maxTokens = 4000
+): Promise<string> {
   const apiKey = process.env.PERPLEXITY_API_KEY
   if (!apiKey) throw new Error('PERPLEXITY_API_KEY not configured')
 
@@ -26,7 +35,7 @@ async function callPerplexity(messages: PerplexityMessage[], model = 'sonar-pro'
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ model, messages, max_tokens: 4000 }),
+    body: JSON.stringify({ model, messages, max_tokens: maxTokens }),
   })
 
   if (!res.ok) {
@@ -56,23 +65,32 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-// Generate a photoreal hero image (OpenAI gpt-image-1), store it in the public
-// `blog-images` bucket, and return its public URL. Returns null on any failure
-// so the post still publishes (text-only) rather than breaking the autopilot.
-async function generateAndStoreHeroImage(
+// Photoreal subjects rotated so in-body images stay varied (no fabricated charts/data).
+const HVAC_IMAGE_SUBJECTS = [
+  'a row of rooftop packaged HVAC units (RTUs) on a flat commercial building roof under a clear sky',
+  'the interior of a commercial mechanical room with large water-cooled chillers and insulated piping',
+  'a building automation system control panel and smart HVAC controls in a modern commercial building',
+  'large commercial air handling units and sheet-metal ductwork in a mechanical penthouse',
+  'a commercial office tower exterior with visible rooftop HVAC equipment, daytime',
+  'a commercial HVAC service technician in PPE inspecting rooftop condenser units',
+]
+
+function imagePrompt(subject: string, title: string): string {
+  return `Professional, photorealistic editorial photograph of ${subject}. Context: a commercial HVAC article titled "${title}" for property and facility managers. Bright, well-lit, sharp, realistic. No text, no words, no logos, no watermarks, no charts or graphs, no recognizable faces. Wide 3:2 landscape composition.`
+}
+
+// Generate one gpt-image-1 image, store it in the public `blog-images` bucket,
+// and return its public URL. Returns null on any failure so the post still
+// publishes (without that image) rather than breaking the autopilot.
+async function generateAndStoreImage(
   db: ReturnType<typeof createAdminClient>,
-  title: string,
-  slug: string
+  prompt: string,
+  path: string
 ): Promise<string | null> {
   const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    console.warn('OPENAI_API_KEY not configured — publishing without hero image')
-    return null
-  }
+  if (!apiKey) return null
 
   try {
-    const prompt = `Professional, photorealistic editorial hero image for a commercial HVAC industry article titled "${title}". Show modern commercial HVAC equipment such as rooftop units (RTUs), chillers, or a clean commercial mechanical room on or inside a commercial building. Bright, well-lit, high quality. No text, no words, no logos, no watermarks, no recognizable faces. Wide 3:2 landscape composition.`
-
     const res = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -89,23 +107,60 @@ async function generateAndStoreHeroImage(
     if (!b64) return null
 
     const buffer = Buffer.from(b64, 'base64')
-    const path = `auto/${slug}.png`
-
     const { error: upErr } = await db.storage
       .from('blog-images')
       .upload(path, buffer, { contentType: 'image/png', upsert: true })
 
     if (upErr) {
-      console.error('Hero image upload failed:', upErr)
+      console.error('Image upload failed:', upErr)
       return null
     }
 
     const { data: pub } = db.storage.from('blog-images').getPublicUrl(path)
     return pub?.publicUrl || null
   } catch (err) {
-    console.error('Hero image step error:', err)
+    console.error('Image step error:', err)
     return null
   }
+}
+
+function figureHtml(url: string, alt: string): string {
+  return `<figure class="my-8"><img src="${url}" alt="${escapeHtml(alt)}" loading="lazy" class="w-full rounded-lg" /></figure>`
+}
+
+// Insert up to `maxImages` photoreal images between the <h2> sections of the
+// E-E-A-T body, after every 2nd section, to break up the text on every post.
+async function insertInlineImages(
+  db: ReturnType<typeof createAdminClient>,
+  bodyHtml: string,
+  slug: string,
+  title: string,
+  maxImages: number
+): Promise<string> {
+  if (!process.env.OPENAI_API_KEY || !bodyHtml) return bodyHtml
+
+  const sections = bodyHtml.split(/(?=<h2)/i).filter((s) => s.trim())
+  if (sections.length < 3) return bodyHtml
+
+  const out: string[] = []
+  let made = 0
+  for (let i = 0; i < sections.length; i++) {
+    out.push(sections[i])
+    const afterSection = i + 1
+    if (made < maxImages && afterSection >= 2 && afterSection % 2 === 0 && i < sections.length - 1) {
+      const subject = HVAC_IMAGE_SUBJECTS[made % HVAC_IMAGE_SUBJECTS.length]
+      const url = await generateAndStoreImage(
+        db,
+        imagePrompt(subject, title),
+        `auto/${slug}-inline-${made + 1}.png`
+      )
+      if (url) {
+        out.push(figureHtml(url, `${subject} — commercial HVAC`))
+        made++
+      }
+    }
+  }
+  return out.join('\n')
 }
 
 interface QA {
@@ -245,7 +300,7 @@ Return ONLY valid JSON in this exact shape:
     { "q": "The core highest-volume question a property manager would ask", "a": "Direct 40-60 word answer optimized for a featured snippet. May include <strong> tags." },
     { "q": "A second authority/friction-reducing question", "a": "Direct 40-60 word answer." }
   ],
-  "body_html": "<h2>Descriptive heading</h2><p>...</p>... The in-depth E-E-A-T body: 600-900 words, HTML only (h2,h3,p,ul,li,strong). Frame everything as 'what does this mean for building owners and facility managers?'. Reference real bodies (ASHRAE, DOE, EPA) where relevant. Include practical action items, equipment types, tonnage ranges, or building types. Use descriptive, keyword-relevant headings — never generic.",
+  "body_html": "<h2>Descriptive heading</h2><p>...</p>... The in-depth E-E-A-T body: 900-1200 words across 5-7 <h2> sections with descriptive, keyword-relevant headings (never generic). HTML only (h2,h3,p,ul,li,strong). Frame everything as 'what does this mean for building owners and facility managers?'. Reference real bodies (ASHRAE, DOE, EPA) where relevant. Include practical action items, equipment types, tonnage ranges, or building types.",
   "faqs": [
     { "q": "Expert FAQ targeting a national search / AI follow-up", "a": "50-100 word authoritative answer covering cost/ROI, compliance, risks, or buyer criteria." }
   ],
@@ -265,7 +320,7 @@ Requirements:
           'You are a commercial HVAC industry writer for My HVAC Tech, the commercial HVAC marketplace for property and facility managers. Write authoritative, accurate, SEO-optimized content. Never fabricate data. Return only valid JSON.',
       },
       { role: 'user', content: articlePrompt },
-    ])
+    ], 'sonar-pro', 6000)
 
     const jsonMatch = articleResult.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
@@ -295,10 +350,14 @@ Requirements:
       return NextResponse.json({ success: true, message: 'Duplicate slug, skipped', published: 0 })
     }
 
-    const body = buildBody(article.qa || [], article.body_html || '', article.faqs || [])
-
-    // Step 3: Generate the hero image (gpt-image-1) and store it. Non-fatal if it fails.
-    const coverImageUrl = await generateAndStoreHeroImage(db, title, slug)
+    // Step 3: Generate the hero image + 2-3 photoreal in-body images. All non-fatal.
+    const coverImageUrl = await generateAndStoreImage(
+      db,
+      imagePrompt('a clean wide establishing view of commercial HVAC equipment', title),
+      `auto/${slug}.png`
+    )
+    const bodyWithImages = await insertInlineImages(db, article.body_html || '', slug, title, 3)
+    const body = buildBody(article.qa || [], bodyWithImages, article.faqs || [])
 
     const now = new Date().toISOString()
 
