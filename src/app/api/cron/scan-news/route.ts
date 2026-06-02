@@ -195,7 +195,8 @@ function buildBody(
   eeatBodyHtml: string,
   faqs: QA[],
   sources: string[],
-  relatedLinks: { slug: string; title: string }[]
+  relatedLinks: { slug: string; title: string }[],
+  locationLink: { path: string; city: string } | null = null
 ): string {
   const qaHtml = qa.length
     ? `<h2>Quick Answers for Property &amp; Facility Managers</h2>\n` +
@@ -226,7 +227,13 @@ function buildBody(
     : ''
 
   // Guaranteed internal links to hubs that always exist — keyword-rich anchors, no orphan pages.
-  const ctaHtml = `<h2>Find a Qualified Commercial HVAC Contractor</h2>
+  // City posts also link directly to their /[state]/[city] location page (the cluster).
+  const ctaHtml = locationLink
+    ? `<h2>Find a Qualified Commercial HVAC Contractor in ${escapeHtml(locationLink.city)}</h2>
+<p>Looking for help in ${escapeHtml(locationLink.city)}? See <a href="${locationLink.path}">commercial HVAC contractors in ${escapeHtml(
+        locationLink.city
+      )}</a>. You can also browse <a href="/contractors">all commercial HVAC contractors</a>, explore <a href="/services">commercial HVAC services</a> like preventive maintenance, retrofits, and emergency repair, or — if you're a contractor — <a href="/for-contractors">list your business on My HVAC Tech</a>.</p>`
+    : `<h2>Find a Qualified Commercial HVAC Contractor</h2>
 <p>Need help acting on this? Browse vetted <a href="/contractors">commercial HVAC contractors</a> in your area, or explore <a href="/services">commercial HVAC services</a> like preventive maintenance, retrofits, and emergency repair. Are you a contractor? <a href="/for-contractors">List your business on My HVAC Tech</a> to reach property and facility managers actively searching for help.</p>`
 
   // Real outbound source links from Perplexity's citations (deduped, nofollow).
@@ -317,13 +324,13 @@ async function tryGenerateFromQueue(
 ): Promise<Record<string, unknown> | null> {
   const { data: topicRows } = await db
     .from('blog_topics')
-    .select('id, primary_keyword, category, target_city')
+    .select('id, primary_keyword, category, target_city, location_page_path')
     .eq('status', 'queued')
     .order('priority', { ascending: false })
     .order('created_at', { ascending: true })
     .limit(1)
   const topic = topicRows?.[0] as
-    | { id: string; primary_keyword: string; category: string; target_city: string | null }
+    | { id: string; primary_keyword: string; category: string; target_city: string | null; location_page_path: string | null }
     | undefined
   if (!topic) return null
 
@@ -390,7 +397,11 @@ async function tryGenerateFromQueue(
       .order('published_at', { ascending: false })
       .limit(2)
     const relatedLinks = (relatedRows || []) as { slug: string; title: string }[]
-    const body = buildBody(article.qa || [], bodyWithImages, article.faqs || [], citations, relatedLinks)
+    const locationLink =
+      topic.location_page_path && topic.target_city
+        ? { path: topic.location_page_path, city: topic.target_city }
+        : null
+    const body = buildBody(article.qa || [], bodyWithImages, article.faqs || [], citations, relatedLinks, locationLink)
 
     const { data, error } = await db
       .from('blog_posts')
