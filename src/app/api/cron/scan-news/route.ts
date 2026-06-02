@@ -262,6 +262,183 @@ function buildBody(
     .join('\n\n')
 }
 
+// Every post is written for this audience — commercial only.
+const AUDIENCE = 'property managers, facility managers, and building owners'
+
+const CATEGORY_GUIDANCE: Record<string, string> = {
+  tips: 'Write a practical, in-depth how-to guide. Include checklists, step-by-step processes, concrete action items, equipment specifics (rooftop units, chillers, VRF), tonnage ranges (50-500+ tons), and cost/ROI context.',
+  regulations:
+    'Explain the regulation or standard clearly: what it is, who it applies to, key requirements, deadlines, penalties for non-compliance, and a step-by-step compliance roadmap. Reference the actual regulatory bodies (ASHRAE, DOE, EPA, the AIM Act, relevant state/local laws).',
+  'industry-news':
+    'Cover the current state, trends, and recent developments, framed around what they mean for the audience.',
+  'company-updates':
+    'Cover recent manufacturer and company developments (Carrier, Trane, Daikin, Lennox, Johnson Controls, etc.) and what they mean for the audience.',
+}
+
+const ARTICLE_JSON_SHAPE = `Return ONLY valid JSON in this exact shape:
+{
+  "title": "SEO-optimized H1 title with the primary keyword",
+  "meta_title": "Under 60 chars, primary keyword first",
+  "meta_description": "Under 160 chars, compelling, includes primary keyword",
+  "excerpt": "2-3 sentence excerpt for card display",
+  "qa": [
+    { "q": "The core highest-volume question the audience would ask", "a": "Direct 40-60 word answer optimized for a featured snippet. May include <strong> tags." },
+    { "q": "A second authority/friction-reducing question", "a": "Direct 40-60 word answer." }
+  ],
+  "body_html": "<h2>Descriptive heading</h2><p>...</p>... 900-1200 words across 5-7 <h2> sections with descriptive, keyword-relevant headings (never generic). HTML only (h2,h3,p,ul,li,strong). Include practical action items, equipment types, tonnage ranges, or building types.",
+  "faqs": [
+    { "q": "Expert FAQ targeting national search / AI follow-up", "a": "50-100 word authoritative answer covering cost/ROI, compliance, risks, or buyer criteria." }
+  ],
+  "tags": ["tag1", "tag2", "tag3", "tag4"]
+}
+
+Requirements:
+- 2-3 items in "qa", 4-6 items in "faqs". All headings descriptive and keyword-relevant.
+- Audience is ${AUDIENCE} of COMMERCIAL buildings (offices, retail, healthcare, warehouses) — NOT homeowners or technicians. Frame everything as "what does this mean for ${AUDIENCE}?".
+- Authoritative, accurate, conversion-aware. Never invent statistics. Output JSON only, no markdown fences.`
+
+function keywordArticlePrompt(keyword: string, category: string, targetCity: string | null): string {
+  const cityLine = targetCity
+    ? `\nLocalize for ${targetCity}: reference the local market naturally, but do NOT fabricate local statistics.`
+    : ''
+  return `Write an authoritative, SEO-optimized ${category} article for My HVAC Tech (the commercial HVAC marketplace) targeting the search keyword "${keyword}".
+Research the topic with current, accurate information and cite real sources.
+${CATEGORY_GUIDANCE[category] || ''}${cityLine}
+Use "${keyword}" naturally in the title, at least one heading, and throughout the body.
+
+${ARTICLE_JSON_SHAPE}`
+}
+
+// Keyword queue takes priority over fresh news. Picks the highest-priority queued
+// topic, writes a keyword-targeted post, publishes it, and marks the topic done.
+// Returns a result object, or null if the queue is empty (caller falls back to news).
+async function tryGenerateFromQueue(
+  db: ReturnType<typeof createAdminClient>
+): Promise<Record<string, unknown> | null> {
+  const { data: topicRows } = await db
+    .from('blog_topics')
+    .select('id, primary_keyword, category, target_city')
+    .eq('status', 'queued')
+    .order('priority', { ascending: false })
+    .order('created_at', { ascending: true })
+    .limit(1)
+  const topic = topicRows?.[0] as
+    | { id: string; primary_keyword: string; category: string; target_city: string | null }
+    | undefined
+  if (!topic) return null
+
+  const now = new Date().toISOString()
+  await db.from('blog_topics').update({ status: 'generating', updated_at: now }).eq('id', topic.id)
+  const revert = async () => {
+    await db.from('blog_topics').update({ status: 'queued', updated_at: new Date().toISOString() }).eq('id', topic.id)
+  }
+
+  try {
+    const { content: articleResult, citations } = await callPerplexity(
+      [
+        {
+          role: 'system',
+          content: `You are a commercial HVAC industry writer for My HVAC Tech. Audience: ${AUDIENCE}. Write authoritative, accurate, SEO-optimized content. Never fabricate data. Return only valid JSON.`,
+        },
+        { role: 'user', content: keywordArticlePrompt(topic.primary_keyword, topic.category, topic.target_city) },
+      ],
+      'sonar-pro',
+      6000
+    )
+
+    const m = articleResult.match(/\{[\s\S]*\}/)
+    if (!m) {
+      await revert()
+      return { success: true, message: 'Keyword generation returned no JSON', published: 0 }
+    }
+    let article: {
+      title?: string
+      meta_title?: string
+      meta_description?: string
+      excerpt?: string
+      qa?: QA[]
+      body_html?: string
+      faqs?: QA[]
+      tags?: string[]
+    }
+    try {
+      article = JSON.parse(m[0])
+    } catch {
+      await revert()
+      return { success: true, message: 'Keyword article parse error', published: 0 }
+    }
+
+    const title = article.title || topic.primary_keyword
+    const slug = generateSlug(title)
+    const { data: dup } = await db.from('blog_posts').select('id').eq('slug', slug).maybeSingle()
+    if (dup) {
+      await revert()
+      return { success: true, message: 'Duplicate slug, skipped', published: 0 }
+    }
+
+    const coverImageUrl = await generateAndStoreImage(
+      db,
+      imagePrompt('a clean wide establishing view of commercial HVAC equipment', title),
+      `auto/${slug}.png`
+    )
+    const bodyWithImages = await insertInlineImages(db, article.body_html || '', slug, title, 3)
+    const { data: relatedRows } = await db
+      .from('blog_posts')
+      .select('slug, title')
+      .eq('status', 'published')
+      .neq('slug', slug)
+      .order('published_at', { ascending: false })
+      .limit(2)
+    const relatedLinks = (relatedRows || []) as { slug: string; title: string }[]
+    const body = buildBody(article.qa || [], bodyWithImages, article.faqs || [], citations, relatedLinks)
+
+    const { data, error } = await db
+      .from('blog_posts')
+      .insert({
+        title,
+        slug,
+        excerpt: article.excerpt || '',
+        body,
+        cover_image_url: coverImageUrl,
+        category: topic.category || 'industry-news',
+        tags: article.tags || [],
+        status: 'published',
+        published_at: now,
+        is_auto_generated: true,
+        author_name: 'My HVAC Tech',
+        author_email: 'info@myhvac.tech',
+        meta_title: article.meta_title || title,
+        meta_description: article.meta_description || (article.excerpt ? article.excerpt.slice(0, 160) : null),
+      })
+      .select('id, title, slug, status')
+      .single()
+
+    if (error) {
+      await revert()
+      console.error('Failed to publish keyword article:', error)
+      return { error: error.message }
+    }
+
+    await db
+      .from('blog_topics')
+      .update({ status: 'published', published_post_id: data.id, published_at: now, updated_at: now })
+      .eq('id', topic.id)
+
+    return {
+      success: true,
+      message: 'Published 1 article from keyword queue',
+      published: 1,
+      mode: 'keyword',
+      keyword: topic.primary_keyword,
+      post: data,
+    }
+  } catch (err) {
+    await revert()
+    console.error('Queue generation error:', err)
+    return { error: 'Queue generation failed' }
+  }
+}
+
 export async function GET(request: NextRequest) {
   if (!validateCron(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -269,6 +446,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const db = createAdminClient()
+
+    // Keyword queue takes priority over fresh news. If a topic is queued, write
+    // that and return; otherwise fall through to the news scan below.
+    const queued = await tryGenerateFromQueue(db)
+    if (queued) return NextResponse.json(queued)
 
     // Existing posts for de-duplication
     const { data: existingPosts } = await db.from('blog_posts').select('slug, source_url')
@@ -343,7 +525,7 @@ Only return the JSON array, nothing else. Only include stories from the last 7 d
     // Step 2: Generate ONE article per run (cadence handles frequency), in the National LLM-SEO format.
     const story = newStories[0]
 
-    const articlePrompt = `Write a blog article about this commercial HVAC news story for property managers and facility managers (NOT technicians or homeowners), following a strict 3-section structure for AI search and featured snippets.
+    const articlePrompt = `Write a blog article about this commercial HVAC news story for ${AUDIENCE} (NOT technicians or homeowners), following a strict 3-section structure for AI search and featured snippets.
 
 HEADLINE: ${story.headline}
 SUMMARY: ${story.summary}
