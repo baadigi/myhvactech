@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
@@ -146,11 +147,14 @@ export default async function BlogPostPage({
 
         {/* Cover Image */}
         {typedPost.cover_image_url && (
-          <div className="relative w-full max-h-96 rounded-xl overflow-hidden mb-8">
-            <img
+          <div className="relative w-full h-96 rounded-xl overflow-hidden mb-8">
+            <Image
               src={typedPost.cover_image_url}
               alt={typedPost.title}
-              className="w-full h-full max-h-96 object-cover"
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, 768px"
+              className="object-cover"
             />
           </div>
         )}
@@ -259,10 +263,13 @@ export default async function BlogPostPage({
                     >
                       <div className="relative h-36 overflow-hidden">
                         {related.cover_image_url ? (
-                          <img
+                          <Image
                             src={related.cover_image_url}
                             alt={related.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            fill
+                            loading="lazy"
+                            sizes="(max-width: 768px) 100vw, 360px"
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-br from-primary-100 via-primary-50 to-sky-100 flex items-center justify-center">

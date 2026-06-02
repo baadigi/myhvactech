@@ -100,11 +100,22 @@ async function generateAndStoreImage(
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) return null
 
+  // Serve WebP, not PNG: gpt-image-1 can emit WebP directly (~70% smaller than
+  // the default PNG), which is the whole point of the image-optimization pass.
+  const webpPath = path.replace(/\.png$/i, '.webp')
+
   try {
     const res = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-image-1', prompt, size: '1536x1024', n: 1 }),
+      body: JSON.stringify({
+        model: 'gpt-image-1',
+        prompt,
+        size: '1536x1024',
+        n: 1,
+        output_format: 'webp',
+        output_compression: 80,
+      }),
     })
 
     if (!res.ok) {
@@ -119,14 +130,14 @@ async function generateAndStoreImage(
     const buffer = Buffer.from(b64, 'base64')
     const { error: upErr } = await db.storage
       .from('blog-images')
-      .upload(path, buffer, { contentType: 'image/png', upsert: true })
+      .upload(webpPath, buffer, { contentType: 'image/webp', upsert: true })
 
     if (upErr) {
       console.error('Image upload failed:', upErr)
       return null
     }
 
-    const { data: pub } = db.storage.from('blog-images').getPublicUrl(path)
+    const { data: pub } = db.storage.from('blog-images').getPublicUrl(webpPath)
     return pub?.publicUrl || null
   } catch (err) {
     console.error('Image step error:', err)
@@ -135,7 +146,7 @@ async function generateAndStoreImage(
 }
 
 function figureHtml(url: string, alt: string): string {
-  return `<figure class="my-8"><img src="${url}" alt="${escapeHtml(alt)}" loading="lazy" class="w-full rounded-lg" /></figure>`
+  return `<figure class="my-8"><img src="${url}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" width="1536" height="1024" class="w-full h-auto rounded-lg" /></figure>`
 }
 
 // Insert up to `maxImages` photoreal images between the <h2> sections of the
