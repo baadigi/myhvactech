@@ -104,7 +104,20 @@ function mimeFromUrl(url: string): string {
   return 'image/jpeg'
 }
 
-async function createPost(token: string, locationId: string, accountIds: string[], summary: string, imageUrl: string) {
+// GHL requires the user that "owns" the post. Prefer an env override, else
+// pull the first user on the location (needs users.readonly on the token).
+async function getUserId(token: string, locationId: string): Promise<string> {
+  if (process.env.GHL_USER_ID) return process.env.GHL_USER_ID
+  const res = await fetch(`${GHL_BASE}/users/?locationId=${locationId}`, { headers: ghlHeaders(token) })
+  if (!res.ok) throw new Error(`GHL users ${res.status} — set GHL_USER_ID env var. ${(await res.text()).slice(0, 120)}`)
+  const data = await res.json()
+  const users = data.users || data.results || (Array.isArray(data) ? data : [])
+  const id = users[0]?.id || users[0]?._id
+  if (!id) throw new Error('No GHL user found — set GHL_USER_ID env var')
+  return id
+}
+
+async function createPost(token: string, locationId: string, userId: string, accountIds: string[], summary: string, imageUrl: string) {
   const res = await fetch(`${GHL_BASE}/social-media-posting/${locationId}/posts`, {
     method: 'POST',
     headers: ghlHeaders(token),
@@ -114,6 +127,7 @@ async function createPost(token: string, locationId: string, accountIds: string[
       media: [{ url: imageUrl, type: mimeFromUrl(imageUrl) }],
       status: 'published',
       type: 'post',
+      userId,
     }),
   })
   const body = await res.text()
@@ -184,8 +198,9 @@ export async function GET(request: NextRequest) {
   if (!target) return NextResponse.json({ posted: false, reason: 'no eligible posts' })
 
   try {
+    const userId = await getUserId(token, locationId)
     const caption = await writeCaption(target, apiKey, recycle)
-    await createPost(token, locationId, accountIds, caption, target.cover_image_url as string)
+    await createPost(token, locationId, userId, accountIds, caption, target.cover_image_url as string)
 
     const upd: Record<string, unknown> = { social_share_count: (target.social_share_count || 0) + 1 }
     if (!recycle) upd.social_posted_at = new Date().toISOString()
