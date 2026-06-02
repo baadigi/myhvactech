@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import RatingStars from '@/components/RatingStars'
 import ContractorCard from '@/components/ContractorCard'
-import { formatPhoneNumber } from '@/lib/utils'
+import { formatPhoneNumber, externalUrl } from '@/lib/utils'
 import { BreadcrumbSchema } from '@/components/SchemaOrg'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -210,7 +210,7 @@ export default async function ContractorProfilePage({ params }: Props) {
       postalCode: contractor.zip_code,
     },
     telephone: contractor.phone,
-    url: contractor.website,
+    url: externalUrl(contractor.website) || `${SITE_URL}/contractors/${contractor.slug}`,
     areaServed: contractor.metro_area || `${contractor.city}, ${contractor.state}`,
     knowsAbout: systemTypeLabels,
     aggregateRating: contractor.review_count > 0 ? {
@@ -453,7 +453,7 @@ export default async function ContractorProfilePage({ params }: Props) {
             )}
             {contractor.website && (
               <a
-                href={contractor.website}
+                href={externalUrl(contractor.website) || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 h-12 px-5 rounded-lg border border-neutral-300 bg-white text-neutral-700 font-medium text-sm hover:bg-neutral-50 transition-colors"

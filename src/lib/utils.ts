@@ -16,6 +16,16 @@ export function formatPhoneNumber(phone: string): string {
   return phone
 }
 
+// Many contractor `website` values are stored as bare domains ("carrier.com").
+// Without a protocol the browser treats the href as relative, producing
+// /contractors/carrier.com 404s. Always return an absolute external URL.
+export function externalUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  const trimmed = url.trim()
+  if (!trimmed) return null
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
 export function generateSlug(text: string): string {
   return text
     .toLowerCase()
