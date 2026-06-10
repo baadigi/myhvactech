@@ -104,6 +104,14 @@ function mimeFromUrl(url: string): string {
   return 'image/jpeg'
 }
 
+// Our blog heroes are WebP, but GHL/Instagram only accept JPEG/PNG and reject
+// the whole multi-account post otherwise. Proxy WebP through weserv (free image
+// CDN) to deliver a JPEG every platform accepts. Non-WebP URLs pass through.
+function socialImageUrl(url: string): string {
+  if (!/\.webp(\?|$)/i.test(url)) return url
+  return `https://images.weserv.nl/?url=${encodeURIComponent(url)}&output=jpg&q=85`
+}
+
 // GHL requires the user that "owns" the post. Prefer an env override, else
 // pull the first user on the location (needs users.readonly on the token).
 async function getUserId(token: string, locationId: string): Promise<string> {
@@ -118,13 +126,14 @@ async function getUserId(token: string, locationId: string): Promise<string> {
 }
 
 async function createPost(token: string, locationId: string, userId: string, accountIds: string[], summary: string, imageUrl: string) {
+  const mediaUrl = socialImageUrl(imageUrl)
   const res = await fetch(`${GHL_BASE}/social-media-posting/${locationId}/posts`, {
     method: 'POST',
     headers: ghlHeaders(token),
     body: JSON.stringify({
       accountIds,
       summary,
-      media: [{ url: imageUrl, type: mimeFromUrl(imageUrl) }],
+      media: [{ url: mediaUrl, type: mimeFromUrl(mediaUrl) }],
       status: 'published',
       type: 'post',
       userId,
