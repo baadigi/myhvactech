@@ -19,9 +19,13 @@ CREATE INDEX IF NOT EXISTS idx_contact_messages_status ON contact_messages (stat
 -- RLS
 ALTER TABLE contact_messages ENABLE ROW LEVEL SECURITY;
 
--- Only service role can insert/read (API routes use service role)
+-- Only service role can insert/read (API routes use service role).
+-- service_role bypasses RLS anyway; scoping TO service_role keeps anon/authenticated
+-- (the Supabase client keys) from reading contact PII. Do NOT use `FOR ALL USING(true)`
+-- without a TO clause -- that grants the public role full access.
 CREATE POLICY "Service role full access on contact_messages"
   ON contact_messages
   FOR ALL
+  TO service_role
   USING (true)
   WITH CHECK (true);
