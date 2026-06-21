@@ -83,7 +83,7 @@ Write one caption (~50-90 words) for Facebook / Instagram / Pinterest / Threads 
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 400,
       system: sys,
       messages: [{ role: 'user', content: user }],
