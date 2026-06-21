@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Calculator, ChevronRight, ArrowRight } from 'lucide-react'
+import { Calculator, ClipboardCheck, CalendarCheck, ChevronRight, ArrowRight } from 'lucide-react'
 import { SITE_URL } from '@/lib/constants'
 import { BreadcrumbSchema, ItemListSchema } from '@/components/SchemaOrg'
 
@@ -23,6 +23,20 @@ const TOOLS = [
     blurb: 'Estimate replacement, install, repair, or maintenance costs by building type and size — then get exact quotes.',
     icon: Calculator,
     cta: 'Estimate my cost',
+  },
+  {
+    href: '/resources/commercial-hvac-contractor-checklist',
+    title: 'Contractor Vetting Checklist + RFP Template',
+    blurb: 'Vet contractors the right way and download a free editable RFP template so every bid is apples-to-apples.',
+    icon: ClipboardCheck,
+    cta: 'Get the checklist',
+  },
+  {
+    href: '/resources/commercial-hvac-maintenance-plan',
+    title: 'Preventive Maintenance Plan Builder',
+    blurb: 'Build a recommended PM schedule for your equipment, then have a vetted contractor quote and run it.',
+    icon: CalendarCheck,
+    cta: 'Build my plan',
   },
 ]
 
@@ -72,12 +86,6 @@ export default function ResourcesPage() {
               </Link>
             )
           })}
-
-          {/* More coming */}
-          <div className="rounded-2xl border border-dashed border-neutral-300 p-6 flex flex-col justify-center text-center">
-            <p className="text-sm font-medium text-neutral-500">More tools coming</p>
-            <p className="text-xs text-neutral-400 mt-1">Contractor vetting checklist &amp; RFP template, preventive-maintenance plan builder.</p>
-          </div>
         </div>
 
         <section className="mt-12 bg-primary-600 rounded-2xl p-8 text-white">
