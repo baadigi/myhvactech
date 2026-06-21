@@ -197,6 +197,25 @@ export function BreadcrumbSchema({ items }: BreadcrumbProps) {
   return <JsonLd data={data} />
 }
 
+interface ItemListProps {
+  items: { name: string; url: string }[]
+}
+
+export function ItemListSchema({ items }: ItemListProps) {
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    numberOfItems: items.length,
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      url: item.url,
+    })),
+  }
+  return <JsonLd data={data} />
+}
+
 interface FAQItem {
   question: string
   answer: string

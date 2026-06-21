@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { MapPin, ChevronRight, Search, Star, Shield } from 'lucide-react'
 import { US_STATES, HVAC_SERVICES, SITE_URL } from '@/lib/constants'
-import { FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
+import { FAQSchema, BreadcrumbSchema, ItemListSchema } from '@/components/SchemaOrg'
 import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -141,6 +141,12 @@ export default async function StatePage({ params }: Props) {
   return (
     <main className="min-h-screen bg-neutral-50">
       <FAQSchema items={faq.map(f => ({ question: f.q, answer: f.a }))} />
+      {cities.length > 0 && (
+        <ItemListSchema items={cities.map((city) => ({
+          name: `${city}, ${stateObj.abbr}`,
+          url: `${SITE_URL}/${state}/${city.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`,
+        }))} />
+      )}
       <BreadcrumbSchema items={[
         { name: 'Home', url: SITE_URL },
         { name: stateObj.name, url: `${SITE_URL}/${state}` },
