@@ -21,6 +21,11 @@
     "schema-dts": "^1.1.2",
     "stripe": "^17.0.0"
   },
+  "browserslist": [
+    "last 2 years",
+    "not dead",
+    "not op_mini all"
+  ],
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
     "@types/leaflet": "^1.9.21",
