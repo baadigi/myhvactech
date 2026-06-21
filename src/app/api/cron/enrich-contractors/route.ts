@@ -132,6 +132,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const limit = Math.min(parseInt(searchParams.get('limit') || '12', 10), 25)
   const onlyId = searchParams.get('id')
+  const stateFilter = searchParams.get('state')
 
   const db = createAdminClient()
 
@@ -143,8 +144,10 @@ export async function GET(request: NextRequest) {
   if (onlyId) {
     query = db.from('contractors').select('id, company_name, city, state, website').eq('id', onlyId)
   } else {
-    // commercial only: imported (in candidates) OR commercial-named
-    query = query.or(`company_name.ilike.%mechanical%,company_name.ilike.%commercial%,company_name.ilike.%industrial%,company_name.ilike.%systems%,company_name.ilike.%refrigeration%,company_name.ilike.%controls%,company_name.ilike.%sheet metal%,company_name.ilike.%energy%,company_name.ilike.%climate%,company_name.ilike.%thermal%,company_name.ilike.%air balance%,company_name.ilike.%engineering%`)
+    // commercial only — use the precise flag (name keywords miss e.g. "Atlas AC Repair")
+    query = query.eq('commercial_verified', true)
+    // optional state partition so parallel drainers don't collide on the same rows
+    if (stateFilter) query = query.eq('state', stateFilter)
   }
   query = query.limit(limit)
 
@@ -166,17 +169,19 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // remaining commercial listings still missing a description
-  const { count: remaining } = await db
+  // remaining commercial listings still missing a description (respects ?state=)
+  let remQuery = db
     .from('contractors')
     .select('id', { count: 'exact', head: true })
     .or('description.is.null,description.eq.')
-    .ilike('company_name', '%mechanical%')
+    .eq('commercial_verified', true)
+  if (stateFilter) remQuery = remQuery.eq('state', stateFilter)
+  const { count: remaining } = await remQuery
 
   return NextResponse.json({
     processed: targets.length,
     updated,
     errors: errors.slice(0, 10),
-    remaining_mechanical_named: remaining ?? null,
+    remaining_commercial: remaining ?? null,
   })
 }
