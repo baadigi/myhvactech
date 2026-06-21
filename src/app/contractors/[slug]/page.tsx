@@ -8,7 +8,7 @@ import {
   Building2, Thermometer, Wrench, Award, ShieldCheck, Users,
   AlertTriangle, ClipboardList, Timer, Cpu
 } from 'lucide-react'
-import { SITE_URL, SYSTEM_TYPES, SERVICE_AGREEMENT_TYPES } from '@/lib/constants'
+import { SITE_URL, SYSTEM_TYPES, SERVICE_AGREEMENT_TYPES, US_STATES } from '@/lib/constants'
 import type { Contractor, Review, ContractorPhoto, SampleProject, GoogleReview } from '@/lib/types'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -229,12 +229,17 @@ export default async function ContractorProfilePage({ params }: Props) {
       reviewBody: r.body,
       datePublished: r.created_at,
     })),
-    creator: {
-      '@type': 'SoftwareApplication',
-      name: 'Perplexity Computer',
-      url: 'https://www.perplexity.ai/computer',
-    },
   }
+
+  // State is stored as an abbreviation (e.g. "CA"); the /[state] route uses the
+  // full-name slug (e.g. "california"). Resolve it so breadcrumb links resolve.
+  const stateMatch = US_STATES.find(
+    (s) => s.abbr.toLowerCase() === contractor.state.toLowerCase() ||
+           s.name.toLowerCase() === contractor.state.toLowerCase()
+  )
+  const stateName = stateMatch?.name ?? contractor.state
+  const stateSlug = stateName.toLowerCase().replace(/\s+/g, '-')
+  const citySlug = contractor.city.toLowerCase().replace(/\s+/g, '-')
 
   return (
     <>
@@ -244,8 +249,8 @@ export default async function ContractorProfilePage({ params }: Props) {
       />
       <BreadcrumbSchema items={[
         { name: 'Home', url: SITE_URL },
-        { name: contractor.state, url: `${SITE_URL}/${contractor.state.toLowerCase().replace(/\s+/g, '-')}` },
-        { name: contractor.city, url: `${SITE_URL}/${contractor.state.toLowerCase().replace(/\s+/g, '-')}/${contractor.city.toLowerCase().replace(/\s+/g, '-')}` },
+        { name: stateName, url: `${SITE_URL}/${stateSlug}` },
+        { name: contractor.city, url: `${SITE_URL}/${stateSlug}/${citySlug}` },
         { name: contractor.company_name, url: `${SITE_URL}/contractors/${contractor.slug}` },
       ]} />
 
