@@ -5,7 +5,11 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // ISR: blog posts are public, published-only reads — cache + refresh hourly.
+// generateStaticParams (even empty) is required to opt a dynamic route into ISR.
 export const revalidate = 3600
+export function generateStaticParams() {
+  return []
+}
 import { ArrowLeft, Calendar, Clock, Tag, ExternalLink, Newspaper } from 'lucide-react'
 import AuthorAvatar from '@/components/AuthorAvatar'
 import { BlogPostSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
