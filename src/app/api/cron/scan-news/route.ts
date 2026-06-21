@@ -75,7 +75,7 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-// Photoreal subjects rotated so in-body images stay varied (no fabricated charts/data).
+// Photoreal subjects rotated so images stay varied (no fabricated charts/data).
 const HVAC_IMAGE_SUBJECTS = [
   'a row of rooftop packaged HVAC units (RTUs) on a flat commercial building roof under a clear sky',
   'the interior of a commercial mechanical room with large water-cooled chillers and insulated piping',
@@ -83,7 +83,25 @@ const HVAC_IMAGE_SUBJECTS = [
   'large commercial air handling units and sheet-metal ductwork in a mechanical penthouse',
   'a commercial office tower exterior with visible rooftop HVAC equipment, daytime',
   'a commercial HVAC service technician in PPE inspecting rooftop condenser units',
+  'a bank of outdoor VRF/VRV condensing units mounted beside a modern commercial building',
+  'a large rooftop cooling tower at a commercial facility, late afternoon light',
+  'a commercial boiler room with industrial gas boilers and insulated piping',
+  'a technician using refrigerant gauges to service a commercial rooftop unit',
+  'ceiling-mounted ductwork and VAV boxes above an open commercial office ceiling',
+  'rooftop HVAC units on a big-box retail store at dusk with warm sky',
 ]
+
+// Deterministic per-post subject pick so each article gets a different hero image
+// (was: every cover used one identical prompt → all posts looked the same).
+function hashStr(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
+function pickSubject(slug: string, offset: number): string {
+  return HVAC_IMAGE_SUBJECTS[(hashStr(slug) + offset) % HVAC_IMAGE_SUBJECTS.length]
+}
 
 function imagePrompt(subject: string, title: string): string {
   return `Professional, photorealistic editorial photograph of ${subject}. Context: a commercial HVAC article titled "${title}" for property and facility managers. Bright, well-lit, sharp, realistic. No text, no words, no logos, no watermarks, no charts or graphs, no recognizable faces. Wide 3:2 landscape composition.`
@@ -169,7 +187,7 @@ async function insertInlineImages(
     out.push(sections[i])
     const afterSection = i + 1
     if (made < maxImages && afterSection >= 2 && afterSection % 2 === 0 && i < sections.length - 1) {
-      const subject = HVAC_IMAGE_SUBJECTS[made % HVAC_IMAGE_SUBJECTS.length]
+      const subject = pickSubject(slug, made + 1)
       const url = await generateAndStoreImage(
         db,
         imagePrompt(subject, title),
@@ -399,7 +417,7 @@ async function tryGenerateFromQueue(
 
     const coverImageUrl = await generateAndStoreImage(
       db,
-      imagePrompt('a clean wide establishing view of commercial HVAC equipment', title),
+      imagePrompt(pickSubject(slug, 0), title),
       `auto/${slug}.png`
     )
     const bodyWithImages = await insertInlineImages(db, article.body_html || '', slug, title, 3)
@@ -472,11 +490,12 @@ export async function GET(request: NextRequest) {
   try {
     const db = createAdminClient()
 
-    // Weekly category rotation (cron runs Mon-Sat): Mon News, Tue Tips, Wed Regs,
-    // Thu Company, Fri Tips, Sat News  => News 2 / Tips 2 / Regs 1 / Company 1.
-    // Tips & Regulations come from the keyword queue; News & Company from the live scan.
+    // Twice-weekly cadence (cron runs Tue + Fri):
+    //   Tue → 'tips'  (keyword-targeted SEO post from the blog_topics queue)
+    //   Fri → 'industry-news' (fresh news from the live Perplexity scan)
+    // Other days are unused unless the cron schedule is widened again.
     const CATEGORY_BY_DAY: Record<number, string> = {
-      1: 'industry-news', 2: 'tips', 3: 'regulations', 4: 'company-updates', 5: 'tips', 6: 'industry-news', 0: 'tips',
+      1: 'industry-news', 2: 'tips', 3: 'regulations', 4: 'company-updates', 5: 'industry-news', 6: 'industry-news', 0: 'tips',
     }
     const target = CATEGORY_BY_DAY[new Date().getUTCDay()] || 'tips'
 
@@ -633,7 +652,7 @@ Requirements:
     // Step 3: Generate the hero image + 2-3 photoreal in-body images. All non-fatal.
     const coverImageUrl = await generateAndStoreImage(
       db,
-      imagePrompt('a clean wide establishing view of commercial HVAC equipment', title),
+      imagePrompt(pickSubject(slug, 0), title),
       `auto/${slug}.png`
     )
     const bodyWithImages = await insertInlineImages(db, article.body_html || '', slug, title, 3)
