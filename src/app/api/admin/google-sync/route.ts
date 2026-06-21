@@ -62,10 +62,19 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH — Batch sync all contractors that already have a google_place_id
+// PATCH — Batch sync contractors that have a place_id but haven't been synced
+// (or are stale >30d). Processes a small batch per call and returns `remaining`
+// so the client can loop — syncing all place_id holders in one request would
+// blow past the function timeout (5k+ contractors).
 export const maxDuration = 300
 
-export async function PATCH() {
+// Filter (PostgREST .or syntax): never synced OR stale.
+function needsSyncFilter(): string {
+  const staleBefore = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  return `google_last_synced_at.is.null,google_last_synced_at.lt.${staleBefore}`
+}
+
+export async function PATCH(request: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -75,18 +84,27 @@ export async function PATCH() {
     return NextResponse.json({ error: 'GOOGLE_PLACES_API_KEY not configured' }, { status: 500 })
   }
 
+  let limit = 50
+  try {
+    const body = await request.json().catch(() => ({}))
+    if (typeof body.limit === 'number' && body.limit > 0) limit = Math.min(body.limit, 100)
+  } catch { /* no body — default */ }
+
   const db = createAdminClient()
+  const filter = needsSyncFilter()
 
   const { data: contractors, error } = await db
     .from('contractors')
     .select('id, company_name, google_place_id')
     .not('google_place_id', 'is', null)
+    .or(filter)
+    .limit(limit)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
   if (!contractors || contractors.length === 0) {
-    return NextResponse.json({ message: 'No contractors with Google Place IDs found', synced: 0 })
+    return NextResponse.json({ success: true, synced: 0, remaining: 0, results: [] })
   }
 
   const results: { id: string; company_name: string; status: string; rating?: number; reviews?: number }[] = []
@@ -109,7 +127,14 @@ export async function PATCH() {
   }
 
   const synced = results.filter((r) => r.status === 'synced').length
-  return NextResponse.json({ success: true, synced, total: contractors.length, results })
+
+  const { count: remaining } = await db
+    .from('contractors')
+    .select('id', { count: 'exact', head: true })
+    .not('google_place_id', 'is', null)
+    .or(filter)
+
+  return NextResponse.json({ success: true, synced, batch: contractors.length, remaining: remaining ?? 0, results })
 }
 
 // GET — Return a Google Places photo URL (proxy to avoid exposing API key)
