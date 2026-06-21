@@ -19,7 +19,12 @@ import { BreadcrumbSchema } from '@/components/SchemaOrg'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // ISR: cache at the edge, refresh hourly (public service-role data only).
+// generateStaticParams (even empty) is required to opt a dynamic route into
+// ISR — without it `revalidate` is ignored and the page renders dynamically.
 export const revalidate = 3600
+export function generateStaticParams() {
+  return []
+}
 
 const ContactForm = dynamic(() => import('@/components/ContactForm'), {
   loading: () => <div className="animate-pulse bg-neutral-100 rounded-xl h-64" />,
