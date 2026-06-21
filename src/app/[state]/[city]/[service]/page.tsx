@@ -8,6 +8,9 @@ import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// ISR: cache at the edge, refresh hourly (public service-role data only).
+export const revalidate = 3600
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Props {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pickSubject, imagePrompt, generateAndStoreImage } from '@/lib/blog-images'
+import { submitToIndexNow } from '@/lib/indexnow'
+import { SITE_URL } from '@/lib/constants'
 
 // One run does up to 2 Perplexity calls + 4 image generations sequentially,
 // so give the function plenty of headroom (Vercel Pro allows up to 300s).
@@ -380,6 +382,8 @@ async function tryGenerateFromQueue(
       .update({ status: 'published', published_post_id: data.id, published_at: now, updated_at: now })
       .eq('id', topic.id)
 
+    await submitToIndexNow([`${SITE_URL}/blog/${data.slug}`])
+
     return {
       success: true,
       message: 'Published 1 article from keyword queue',
@@ -614,6 +618,8 @@ Requirements:
       console.error('Failed to publish article:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    await submitToIndexNow([`${SITE_URL}/blog/${data.slug}`])
 
     return NextResponse.json({
       success: true,

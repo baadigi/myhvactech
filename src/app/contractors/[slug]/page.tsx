@@ -18,6 +18,9 @@ import { formatPhoneNumber, externalUrl } from '@/lib/utils'
 import { BreadcrumbSchema } from '@/components/SchemaOrg'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// ISR: cache at the edge, refresh hourly (public service-role data only).
+export const revalidate = 3600
+
 const ContactForm = dynamic(() => import('@/components/ContactForm'), {
   loading: () => <div className="animate-pulse bg-neutral-100 rounded-xl h-64" />,
 })

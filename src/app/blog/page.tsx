@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { Calendar, Clock, ArrowRight, Newspaper } from 'lucide-react'
 import AuthorAvatar from '@/components/AuthorAvatar'
 import { SITE_URL } from '@/lib/constants'
@@ -67,7 +67,7 @@ export default async function BlogListingPage({
   const activeCategory = params.category || 'all'
   const currentPage = Math.max(1, parseInt(params.page || '1', 10))
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   let query = supabase
     .from('blog_posts')
