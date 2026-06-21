@@ -30,6 +30,11 @@ export default function ContractorCard({
   className,
 }: ContractorCardProps) {
   const initials = getInitials(contractor.company_name)
+  // Prefer synced Google Business Profile data; fall back to native fields.
+  const displayRating = contractor.google_rating ?? contractor.avg_rating
+  const displayReviewCount = contractor.google_review_count ?? contractor.review_count
+  const isGoogleRated = contractor.google_rating != null && (contractor.google_review_count ?? 0) > 0
+  const blurb = contractor.short_description ?? contractor.google_editorial_summary ?? contractor.description
   const allServices = contractor.services ?? services
   const visibleServices = allServices.slice(0, 3)
   const extraCount = allServices.length - visibleServices.length
@@ -104,10 +109,15 @@ export default function ContractorCard({
               {contractor.company_name}
             </h3>
             <div className="flex flex-wrap gap-1.5">
-              {contractor.is_verified && (
+              {contractor.is_verified ? (
                 <Badge variant="verified" className="shrink-0">
                   <CheckCircle size={11} aria-hidden="true" />
                   Verified
+                </Badge>
+              ) : isGoogleRated && (
+                <Badge variant="verified" className="shrink-0">
+                  <CheckCircle size={11} aria-hidden="true" />
+                  Google Reviewed
                 </Badge>
               )}
               {contractor.is_featured && (
@@ -181,21 +191,24 @@ export default function ContractorCard({
           )}
 
           {/* Rating */}
-          {contractor.review_count > 0 && (
+          {displayReviewCount > 0 && (
             <div className="flex items-center gap-2 mb-2">
               <RatingStars
-                rating={contractor.avg_rating}
+                rating={displayRating}
                 size="sm"
                 showCount
-                count={contractor.review_count}
+                count={displayReviewCount}
               />
+              {isGoogleRated && (
+                <span className="text-[11px] text-neutral-400">on Google</span>
+              )}
             </div>
           )}
 
           {/* Short description */}
-          {contractor.short_description && (
+          {blurb && (
             <p className="text-sm text-neutral-600 mb-3 leading-relaxed">
-              {truncate(contractor.short_description, 120)}
+              {truncate(blurb, 120)}
             </p>
           )}
 
