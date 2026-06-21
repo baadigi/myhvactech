@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 // Vercel Cron or manual trigger with secret.
 // Vercel's scheduler does NOT send an Authorization header unless CRON_SECRET
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest) {
     const { data: postsToPublish, error: fetchError } = await db
       .from('blog_posts')
       .select('id, title, slug, scheduled_at')
+      .eq('trade', TRADE_KEY)
       .eq('status', 'draft')
       .not('scheduled_at', 'is', null)
       .lte('scheduled_at', now)

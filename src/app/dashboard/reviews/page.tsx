@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { Button } from '@/components/ui/Button'
 import type { Review } from '@/lib/types'
 
@@ -224,6 +225,7 @@ export default function ReviewsPage() {
     const { data: contractor } = await supabase
       .from('contractors')
       .select('id, avg_rating')
+      .eq('trade', TRADE_KEY)
       .eq('owner_id', user.id)
       .single()
 

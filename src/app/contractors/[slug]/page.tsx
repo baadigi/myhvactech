@@ -17,6 +17,7 @@ import ContractorCard from '@/components/ContractorCard'
 import { formatPhoneNumber, externalUrl } from '@/lib/utils'
 import { BreadcrumbSchema } from '@/components/SchemaOrg'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 // ISR: cache at the edge, refresh hourly (public service-role data only).
 // generateStaticParams (even empty) is required to opt a dynamic route into
@@ -42,6 +43,7 @@ async function getContractor(slug: string) {
   const { data: contractor, error } = await db
     .from('contractors')
     .select('*')
+    .eq('trade', TRADE_KEY)
     .eq('slug', slug)
     .neq('subscription_status', 'cancelled')
     .single()
@@ -141,6 +143,7 @@ async function getSimilarContractors(contractor: { id: string; city: string; sta
       stripe_subscription_id, meta_title, meta_description, profile_views,
       commercial_verified
     `)
+    .eq('trade', TRADE_KEY)
     .eq('state', contractor.state)
     .neq('id', contractor.id)
     .neq('subscription_status', 'cancelled')

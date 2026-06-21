@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ChevronLeft, Building2, MapPin, Star } from 'lucide-react'
 import { SITE_URL } from '@/lib/constants'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import ContactForm from '@/components/ContactForm'
 
 interface Props {
@@ -15,6 +16,7 @@ async function getContractor(slug: string) {
   const { data, error } = await db
     .from('contractors')
     .select('id, company_name, slug, city, state, avg_rating, review_count, avg_quote_turnaround_hours, commercial_verified, phone')
+    .eq('trade', TRADE_KEY)
     .eq('slug', slug)
     .neq('subscription_status', 'cancelled')
     .single()

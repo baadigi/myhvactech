@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 const ADMIN_EMAIL = 'ryan@baadigi.com'
 
@@ -26,6 +27,7 @@ export async function GET(
     const { data: contractor, error } = await db
       .from('contractors')
       .select('*')
+      .eq('trade', TRADE_KEY)
       .eq('id', id)
       .single()
 

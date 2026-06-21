@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { Button } from '@/components/ui/Button'
 import {
   BUILDING_TYPES,
@@ -223,6 +224,7 @@ export default function ProfilePage() {
     const { data, error } = await supabase
       .from('contractors')
       .select('*')
+      .eq('trade', TRADE_KEY)
       .eq('owner_id', user.id)
       .single()
 
@@ -322,7 +324,7 @@ export default function ProfilePage() {
     } else {
       setToast({ message: 'Profile saved successfully', type: 'success' })
       // Refresh contractor
-      const { data } = await supabase.from('contractors').select('*').eq('id', contractor.id).single()
+      const { data } = await supabase.from('contractors').select('*').eq('trade', TRADE_KEY).eq('id', contractor.id).single()
       if (data) setContractor(data as Contractor)
     }
   }

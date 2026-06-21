@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { SITE_URL } from '@/lib/constants'
 import ClaimListingClient from './ClaimListingClient'
 
@@ -15,6 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { data: contractor } = await supabase
     .from('contractors')
     .select('company_name, city, state')
+    .eq('trade', TRADE_KEY)
     .eq('slug', slug)
     .single()
 
@@ -34,6 +36,7 @@ export default async function ClaimListingPage({ params }: Props) {
   const { data: contractor } = await supabase
     .from('contractors')
     .select('id, company_name, city, state, phone, is_claimed, slug')
+    .eq('trade', TRADE_KEY)
     .eq('slug', slug)
     .single()
 

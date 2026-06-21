@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { SUBSCRIPTION_TIERS } from '@/lib/constants'
 
 const TIER_BADGE: Record<string, string> = {
@@ -34,12 +35,13 @@ export default async function AdminPage() {
     recentSignupsResult,
     pendingReviewsResult,
   ] = await Promise.all([
-    supabase.from('contractors').select('subscription_tier, created_at'),
+    supabase.from('contractors').select('subscription_tier, created_at').eq('trade', TRADE_KEY),
     supabase.from('reviews').select('status'),
     supabase.from('leads').select('id', { count: 'exact', head: true }),
     supabase
       .from('contractors')
       .select('id, company_name, slug, subscription_tier, is_verified, commercial_verified, city, state, created_at')
+      .eq('trade', TRADE_KEY)
       .order('created_at', { ascending: false })
       .limit(10),
     supabase

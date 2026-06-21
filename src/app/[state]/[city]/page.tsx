@@ -7,6 +7,7 @@ import { FAQSchema, BreadcrumbSchema, ItemListSchema } from '@/components/Schema
 import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 // ISR: cache rendered pages at the edge, refresh hourly. These pages read only
 // public service-role data (no per-request state), so they're safe to cache.
@@ -42,6 +43,7 @@ async function getContractorsForCity(city: string, stateAbbr: string, stateName:
   const { data } = await db
     .from('contractors')
     .select('*')
+    .eq('trade', TRADE_KEY)
     .ilike('city', city)
     .or(`state.ilike.${stateAbbr},state.ilike.${stateName}`)
     .neq('subscription_status', 'cancelled')
@@ -58,6 +60,7 @@ async function getNearbyCities(city: string, stateAbbr: string, stateName: strin
   const { data } = await db
     .from('contractors')
     .select('city')
+    .eq('trade', TRADE_KEY)
     .or(`state.ilike.${stateAbbr},state.ilike.${stateName}`)
     .neq('subscription_status', 'cancelled')
 

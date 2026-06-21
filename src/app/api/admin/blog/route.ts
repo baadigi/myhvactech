@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
 
 const ADMIN_EMAIL = 'ryan@baadigi.com'
 
@@ -47,6 +48,7 @@ export async function GET(request: NextRequest) {
     let query = db
       .from('blog_posts')
       .select('*', { count: 'exact' })
+      .eq('trade', TRADE_KEY)
 
     // Filters
     if (search) {
@@ -148,6 +150,7 @@ export async function POST(request: NextRequest) {
     const { data: existing } = await db
       .from('blog_posts')
       .select('slug')
+      .eq('trade', TRADE_KEY)
       .like('slug', `${slug}%`)
 
     if (existing && existing.length > 0) {
@@ -191,7 +194,7 @@ export async function POST(request: NextRequest) {
 
     const { data: post, error } = await db
       .from('blog_posts')
-      .insert(insertData)
+      .insert(withTrade(insertData))
       .select()
       .single()
 
@@ -236,6 +239,7 @@ export async function PATCH(request: NextRequest) {
       const { data: existingPost } = await db
         .from('blog_posts')
         .select('published_at')
+        .eq('trade', TRADE_KEY)
         .eq('id', id)
         .single()
 

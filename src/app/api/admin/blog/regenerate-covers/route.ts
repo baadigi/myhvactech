@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { pickSubject, imagePrompt, generateAndStoreImage } from '@/lib/blog-images'
 
 const ADMIN_EMAIL = 'ryan@baadigi.com'
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
   let q = db
     .from('blog_posts')
     .select('id, slug, title')
+    .eq('trade', TRADE_KEY)
     .eq('status', 'published')
     .not('cover_image_url', 'ilike', '%-cover-v2%')
     .order('published_at', { ascending: true })
@@ -82,6 +84,7 @@ export async function POST(request: Request) {
   let remQ = db
     .from('blog_posts')
     .select('id', { count: 'exact', head: true })
+    .eq('trade', TRADE_KEY)
     .eq('status', 'published')
     .not('cover_image_url', 'ilike', '%-cover-v2%')
   if (onlyAuto) remQ = remQ.eq('is_auto_generated', true)

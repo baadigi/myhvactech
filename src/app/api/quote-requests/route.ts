@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { withTrade } from '@/lib/trade-scope'
 import { sendNotification } from '@/lib/email'
 import { pushLeadToGHL } from '@/lib/ghl'
 
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: inserted, error: dbError } = await supabase
     .from('quote_requests')
-    .insert(record)
+    .insert(withTrade(record))
     .select('id')
     .single()
 

@@ -8,6 +8,7 @@ import ContractorCard from '@/components/ContractorCard'
 import SearchBar from '@/components/SearchBar'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 const SearchFilters = dynamic(() => import('@/components/SearchFilters'), {
   loading: () => <div className="animate-pulse bg-neutral-100 rounded-xl h-48" />,
@@ -126,6 +127,7 @@ export default async function SearchPage({ searchParams }: Props) {
   let dbQuery: any = supabase
     .from('contractors')
     .select('*', { count: 'exact' })
+    .eq('trade', TRADE_KEY)
     .neq('subscription_status', 'cancelled')
 
   // Location filters

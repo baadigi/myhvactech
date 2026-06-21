@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 export async function POST(request: Request) {
   try {
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
     const { data: post, error: fetchError } = await supabase
       .from('blog_posts')
       .select('id, view_count')
+      .eq('trade', TRADE_KEY)
       .eq('slug', slug)
       .eq('status', 'published')
       .single()

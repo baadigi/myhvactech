@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
 import { pickSubject, imagePrompt, generateAndStoreImage } from '@/lib/blog-images'
 import { submitToIndexNow } from '@/lib/indexnow'
 import { SITE_URL } from '@/lib/constants'
@@ -324,7 +325,7 @@ async function tryGenerateFromQueue(
 
     const title = article.title || topic.primary_keyword
     const slug = generateSlug(title)
-    const { data: dup } = await db.from('blog_posts').select('id').eq('slug', slug).maybeSingle()
+    const { data: dup } = await db.from('blog_posts').select('id').eq('trade', TRADE_KEY).eq('slug', slug).maybeSingle()
     if (dup) {
       await revert()
       return { success: true, message: 'Duplicate slug, skipped', published: 0 }
@@ -339,6 +340,7 @@ async function tryGenerateFromQueue(
     const { data: relatedRows } = await db
       .from('blog_posts')
       .select('slug, title')
+      .eq('trade', TRADE_KEY)
       .eq('status', 'published')
       .neq('slug', slug)
       .order('published_at', { ascending: false })
@@ -352,7 +354,7 @@ async function tryGenerateFromQueue(
 
     const { data, error } = await db
       .from('blog_posts')
-      .insert({
+      .insert(withTrade({
         title,
         slug,
         excerpt: article.excerpt || '',
@@ -367,7 +369,7 @@ async function tryGenerateFromQueue(
         author_email: 'info@myhvac.tech',
         meta_title: article.meta_title || title,
         meta_description: article.meta_description || (article.excerpt ? article.excerpt.slice(0, 160) : null),
-      })
+      }))
       .select('id, title, slug, status')
       .single()
 
@@ -428,7 +430,7 @@ export async function GET(request: NextRequest) {
         : ''
 
     // Existing posts for de-duplication
-    const { data: existingPosts } = await db.from('blog_posts').select('slug, source_url')
+    const { data: existingPosts } = await db.from('blog_posts').select('slug, source_url').eq('trade', TRADE_KEY)
 
     const existingSlugs = new Set((existingPosts ?? []).map((p: { slug: string }) => p.slug))
     const existingSourceUrls = new Set(
@@ -579,6 +581,7 @@ Requirements:
     const { data: relatedRows } = await db
       .from('blog_posts')
       .select('slug, title')
+      .eq('trade', TRADE_KEY)
       .eq('status', 'published')
       .neq('slug', slug)
       .order('published_at', { ascending: false })
@@ -592,7 +595,7 @@ Requirements:
     // Step 4: Auto-publish (status='published') — this is the autopilot.
     const { data, error } = await db
       .from('blog_posts')
-      .insert({
+      .insert(withTrade({
         title,
         slug,
         excerpt: article.excerpt || story.summary,
@@ -610,7 +613,7 @@ Requirements:
         meta_title: article.meta_title || title,
         meta_description:
           article.meta_description || (article.excerpt ? article.excerpt.slice(0, 160) : null),
-      })
+      }))
       .select('id, title, slug, status')
       .single()
 

@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 // Shared Google Places (Legacy) helpers used by:
 //   - /api/admin/google-sync     (refresh contractors that already have a place_id)
@@ -203,6 +204,7 @@ export async function syncContractorGoogle(
   const { data: currentContractor } = await db
     .from('contractors')
     .select('phone, website, street_address, operating_hours, description')
+    .eq('trade', TRADE_KEY)
     .eq('id', contractorId)
     .single()
 

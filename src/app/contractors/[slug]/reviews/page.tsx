@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -12,6 +13,7 @@ export default async function ContractorReviewsPage({ params }: Props) {
   const { data: contractor } = await supabase
     .from('contractors')
     .select('id, company_name, city, state, avg_rating, review_count')
+    .eq('trade', TRADE_KEY)
     .eq('slug', slug)
     .single()
 

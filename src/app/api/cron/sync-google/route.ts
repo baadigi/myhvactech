@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { syncContractorGoogle } from '@/lib/google-places'
 
 // Syncs a batch of never-synced contractors per run, so a big import (5k+)
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
   const { data: contractors, error } = await db
     .from('contractors')
     .select('id, google_place_id')
+    .eq('trade', TRADE_KEY)
     .not('google_place_id', 'is', null)
     .is('google_last_synced_at', null)
     .limit(BATCH)
@@ -64,6 +66,7 @@ export async function GET(request: NextRequest) {
   const { count: remaining } = await db
     .from('contractors')
     .select('id', { count: 'exact', head: true })
+    .eq('trade', TRADE_KEY)
     .not('google_place_id', 'is', null)
     .is('google_last_synced_at', null)
 

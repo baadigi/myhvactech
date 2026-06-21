@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
 import { externalUrl } from '@/lib/utils'
 
 const ADMIN_EMAIL = 'ryan@baadigi.com'
@@ -33,6 +34,7 @@ async function deduplicateSlug(
   const { data } = await client
     .from('contractors')
     .select('slug')
+    .eq('trade', TRADE_KEY)
     .ilike('slug', `${baseSlug}%`)
   const existing = new Set((data || []).map((r: { slug: string }) => r.slug))
   if (!existing.has(baseSlug)) return baseSlug
@@ -85,7 +87,7 @@ export async function POST(request: NextRequest) {
 
   const { data: created, error: insErr } = await db
     .from('contractors')
-    .insert({
+    .insert(withTrade({
       company_name: cand.name,
       slug,
       city,
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
       website: externalUrl(cand.website),
       is_verified: false,
       is_claimed: false,
-    })
+    }))
     .select('id')
     .single()
 

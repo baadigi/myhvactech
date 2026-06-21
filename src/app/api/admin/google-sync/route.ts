@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { syncContractorGoogle } from '@/lib/google-places'
 
 const ADMIN_EMAIL = 'ryan@baadigi.com'
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       const { data: contractor } = await db
         .from('contractors')
         .select('google_place_id')
+        .eq('trade', TRADE_KEY)
         .eq('id', contractor_id)
         .single()
       placeId = contractor?.google_place_id
@@ -96,6 +98,7 @@ export async function PATCH(request: Request) {
   const { data: contractors, error } = await db
     .from('contractors')
     .select('id, company_name, google_place_id')
+    .eq('trade', TRADE_KEY)
     .not('google_place_id', 'is', null)
     .or(filter)
     .limit(limit)
@@ -131,6 +134,7 @@ export async function PATCH(request: Request) {
   const { count: remaining } = await db
     .from('contractors')
     .select('id', { count: 'exact', head: true })
+    .eq('trade', TRADE_KEY)
     .not('google_place_id', 'is', null)
     .or(filter)
 

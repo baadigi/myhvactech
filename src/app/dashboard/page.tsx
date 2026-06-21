@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import type { Contractor, Lead, Review } from '@/lib/types'
 import { Button } from '@/components/ui/Button'
 
@@ -106,6 +107,7 @@ export default async function DashboardPage() {
   const { data: contractor } = await supabase
     .from('contractors')
     .select('*')
+    .eq('trade', TRADE_KEY)
     .eq('owner_id', user.id)
     .single()
 

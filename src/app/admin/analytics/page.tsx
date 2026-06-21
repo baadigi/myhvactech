@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ export default async function AdminAnalyticsPage() {
       .order('created_at', { ascending: false })
       .limit(20),
     // Blog views (last 30 days)
-    supabase.from('blog_posts').select('title, slug, view_count').order('view_count', { ascending: false }).limit(5),
+    supabase.from('blog_posts').select('title, slug, view_count').eq('trade', TRADE_KEY).order('view_count', { ascending: false }).limit(5),
     // Total leads
     supabase.from('leads').select('id', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
   ])
@@ -91,6 +92,7 @@ export default async function AdminAnalyticsPage() {
     const { data: contractors } = await supabase
       .from('contractors')
       .select('id, company_name, slug')
+      .eq('trade', TRADE_KEY)
       .in('id', topContractorIds.map((c) => c.id))
     if (contractors) {
       const nameMap = new Map(contractors.map((c: { id: string; company_name: string; slug: string }) => [c.id, c]))
