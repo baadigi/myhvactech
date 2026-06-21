@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
 import { HVAC_SERVICES } from '@/lib/constants'
 import { sendNotification } from '@/lib/email'
 import { pushLeadToGHL } from '@/lib/ghl'
@@ -25,6 +26,7 @@ async function deduplicateSlug(
   const { data } = await supabase
     .from('contractors')
     .select('slug')
+    .eq('trade', TRADE_KEY)
     .ilike('slug', `${baseSlug}%`)
     .order('slug', { ascending: true })
 
@@ -133,6 +135,7 @@ export async function POST(request: NextRequest) {
     const { data: existing } = await supabase
       .from('contractors')
       .select('id')
+      .eq('trade', TRADE_KEY)
       .eq('owner_id', user.id)
       .maybeSingle()
 
@@ -218,7 +221,7 @@ export async function POST(request: NextRequest) {
     // Insert contractor
     const { data: contractor, error: insertError } = await supabase
       .from('contractors')
-      .insert(contractorPayload)
+      .insert(withTrade(contractorPayload))
       .select()
       .single()
 

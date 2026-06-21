@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
 
 const ADMIN_EMAIL = 'ryan@baadigi.com'
 
@@ -213,6 +214,7 @@ export async function POST(request: NextRequest) {
     const { data: existingPosts } = await db
       .from('blog_posts')
       .select('slug, source_url')
+      .eq('trade', TRADE_KEY)
 
     const existingSlugs = new Set((existingPosts ?? []).map(p => p.slug))
     const existingSourceUrls = new Set(
@@ -245,7 +247,7 @@ export async function POST(request: NextRequest) {
 
       const { data, error } = await db
         .from('blog_posts')
-        .insert({
+        .insert(withTrade({
           title: article.title,
           slug,
           excerpt: article.excerpt,
@@ -259,7 +261,7 @@ export async function POST(request: NextRequest) {
           author_name: 'My HVAC Tech',
           author_email: 'info@myhvac.tech',
           meta_description: article.excerpt?.slice(0, 160) || null,
-        })
+        }))
         .select('id, title, slug, status')
         .single()
 

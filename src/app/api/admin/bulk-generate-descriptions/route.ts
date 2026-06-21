@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 const ADMIN_EMAIL = 'ryan@baadigi.com'
 
@@ -321,6 +322,7 @@ export async function POST(request: NextRequest) {
     let query = db
       .from('contractors')
       .select('*')
+      .eq('trade', TRADE_KEY)
       .neq('subscription_status', 'cancelled')
       .order('profile_views', { ascending: false })
       .limit(limit)

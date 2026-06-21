@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 // ISR: blog posts are public, published-only reads — cache + refresh hourly.
 // generateStaticParams (even empty) is required to opt a dynamic route into ISR.
@@ -66,6 +67,7 @@ export async function generateMetadata({
   const { data: post } = await supabase
     .from('blog_posts')
     .select('title, excerpt, meta_title, meta_description, cover_image_url')
+    .eq('trade', TRADE_KEY)
     .eq('slug', slug)
     .eq('status', 'published')
     .single()
@@ -103,6 +105,7 @@ export default async function BlogPostPage({
   const { data: post } = await supabase
     .from('blog_posts')
     .select('*')
+    .eq('trade', TRADE_KEY)
     .eq('slug', slug)
     .eq('status', 'published')
     .single()
@@ -119,6 +122,7 @@ export default async function BlogPostPage({
   const { data: relatedPosts } = await supabase
     .from('blog_posts')
     .select('id, title, slug, excerpt, cover_image_url, category, author_name, published_at, body')
+    .eq('trade', TRADE_KEY)
     .eq('status', 'published')
     .eq('category', typedPost.category)
     .neq('slug', slug)

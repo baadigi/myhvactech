@@ -7,6 +7,7 @@ import { FAQSchema, BreadcrumbSchema, ItemListSchema } from '@/components/Schema
 import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 // ISR: cache at the edge, refresh hourly (public service-role data only).
 export const revalidate = 3600
@@ -33,6 +34,7 @@ async function getCitiesForState(stateAbbr: string): Promise<string[]> {
   const { data } = await db
     .from('contractors')
     .select('city')
+    .eq('trade', TRADE_KEY)
     .ilike('state', stateAbbr)
     .neq('subscription_status', 'cancelled')
 
@@ -58,6 +60,7 @@ async function getFeaturedContractors(stateAbbr: string): Promise<Contractor[]> 
   const { data } = await db
     .from('contractors')
     .select('*')
+    .eq('trade', TRADE_KEY)
     .ilike('state', stateAbbr)
     .neq('subscription_status', 'cancelled')
     .order('is_verified', { ascending: false })

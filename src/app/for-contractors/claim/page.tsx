@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import { Search, Building2, ArrowRight, Shield } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { SITE_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default async function ClaimIndexPage({ searchParams }: Props) {
     const { data } = await supabase
       .from('contractors')
       .select('id, company_name, city, state, slug, is_claimed')
+      .eq('trade', TRADE_KEY)
       .ilike('company_name', `%${query}%`)
       .order('company_name')
       .limit(20)

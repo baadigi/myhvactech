@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { SUBSCRIPTION_TIERS } from '@/lib/constants'
 import type { Contractor } from '@/lib/types'
 import Logo from '@/components/Logo'
@@ -117,6 +118,7 @@ export default async function DashboardLayout({
   const { data: contractor } = await supabase
     .from('contractors')
     .select('id, company_name, slug, subscription_tier, is_verified, commercial_verified')
+    .eq('trade', TRADE_KEY)
     .eq('owner_id', user.id)
     .single()
 

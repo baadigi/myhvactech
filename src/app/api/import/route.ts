@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
 
 const ADMIN_EMAIL = 'ryan@baadigi.com'
 const BATCH_SIZE = 50
@@ -167,6 +168,7 @@ export async function POST(request: Request) {
       const { data } = await adminClient
         .from('contractors')
         .select('google_place_id')
+        .eq('trade', TRADE_KEY)
         .in('google_place_id', batch)
       if (data) {
         for (const row of data) {
@@ -188,6 +190,7 @@ export async function POST(request: Request) {
       const { data } = await adminClient
         .from('contractors')
         .select('phone')
+        .eq('trade', TRADE_KEY)
         .not('phone', 'is', null)
       if (data) {
         for (const row of data) {
@@ -213,6 +216,7 @@ export async function POST(request: Request) {
       const { data } = await adminClient
         .from('contractors')
         .select('company_name, city, state')
+        .eq('trade', TRADE_KEY)
         .in('company_name', batch)
       if (data) {
         for (const row of data) {
@@ -287,6 +291,7 @@ export async function POST(request: Request) {
       const { data } = await adminClient
         .from('contractors')
         .select('slug')
+        .eq('trade', TRADE_KEY)
         .in('slug', batch)
       if (data) {
         for (const row of data) {
@@ -317,14 +322,14 @@ export async function POST(request: Request) {
       const batch = fresh.slice(i, i + BATCH_SIZE)
       const { error, data } = await adminClient
         .from('contractors')
-        .insert(batch)
+        .insert(withTrade(batch))
         .select('id')
 
       if (error) {
         for (let j = 0; j < batch.length; j++) {
           const { error: rowErr } = await adminClient
             .from('contractors')
-            .insert(batch[j])
+            .insert(withTrade(batch[j]))
             .select('id')
 
           if (rowErr) {

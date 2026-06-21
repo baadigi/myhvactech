@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { findPlaceId, syncContractorGoogle } from '@/lib/google-places'
 import { US_STATES } from '@/lib/constants'
 
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
   const { data: contractors, error } = await db
     .from('contractors')
     .select('id, company_name, city, state')
+    .eq('trade', TRADE_KEY)
     .is('google_place_id', null)
     .neq('subscription_status', 'cancelled')
     .limit(limit)
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
   const { count: remaining } = await db
     .from('contractors')
     .select('id', { count: 'exact', head: true })
+    .eq('trade', TRADE_KEY)
     .is('google_place_id', null)
     .neq('subscription_status', 'cancelled')
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { Button } from '@/components/ui/Button'
 import type { Lead } from '@/lib/types'
 import { BUDGET_BANDS } from '@/lib/constants'
@@ -211,6 +212,7 @@ export default function LeadsPage() {
     const { data: contractor } = await supabase
       .from('contractors')
       .select('id')
+      .eq('trade', TRADE_KEY)
       .eq('owner_id', user.id)
       .single()
 

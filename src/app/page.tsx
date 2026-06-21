@@ -8,6 +8,7 @@ import CityCard from '@/components/CityCard'
 import { Button } from '@/components/ui/Button'
 import { HVAC_SERVICES, US_STATES } from '@/lib/constants'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import type { Contractor, Service } from '@/lib/types'
 
 // ——————————————————————————————————————————
@@ -103,6 +104,7 @@ async function getTopCities() {
     const { data, error } = await db
       .from('contractors')
       .select('city, state')
+      .eq('trade', TRADE_KEY)
       .neq('subscription_status', 'cancelled')
 
     if (error || !data || data.length === 0) return []
@@ -149,6 +151,7 @@ async function getFeaturedContractors(visitorState?: string, visitorCity?: strin
       const { data: cityMatch } = await db
         .from('contractors')
         .select('*')
+        .eq('trade', TRADE_KEY)
         .ilike('city', visitorCity)
         .ilike('state', visitorState)
         .neq('subscription_status', 'cancelled')
@@ -165,6 +168,7 @@ async function getFeaturedContractors(visitorState?: string, visitorCity?: strin
       const { data: stateMatch } = await db
         .from('contractors')
         .select('*')
+        .eq('trade', TRADE_KEY)
         .ilike('state', visitorState)
         .neq('subscription_status', 'cancelled')
         .order('review_count', { ascending: false })
@@ -179,6 +183,7 @@ async function getFeaturedContractors(visitorState?: string, visitorCity?: strin
     const { data, error } = await db
       .from('contractors')
       .select('*')
+      .eq('trade', TRADE_KEY)
       .neq('subscription_status', 'cancelled')
       .order('review_count', { ascending: false })
       .limit(3)

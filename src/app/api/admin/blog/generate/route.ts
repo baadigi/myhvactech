@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
 
 const ADMIN_EMAIL = 'ryan@baadigi.com'
 
@@ -453,6 +454,7 @@ export async function POST(request: NextRequest) {
     const { data: existing } = await db
       .from('blog_posts')
       .select('slug')
+      .eq('trade', TRADE_KEY)
       .like('slug', `${slug}%`)
 
     if (existing && existing.length > 0) {
@@ -490,7 +492,7 @@ export async function POST(request: NextRequest) {
 
     const { data: post, error } = await db
       .from('blog_posts')
-      .insert(insertData)
+      .insert(withTrade(insertData))
       .select()
       .single()
 

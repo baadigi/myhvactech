@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { withTrade } from '@/lib/trade-scope'
 import { sendNotification } from '@/lib/email'
 import { pushLeadToGHL } from '@/lib/ghl'
 
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
     // Insert new claim request
     const { error: insertError } = await db
       .from('claim_requests')
-      .insert({
+      .insert(withTrade({
         contractor_id: contractorId,
         user_id: user.id,
         contact_name: contactName,
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
         contact_phone: contactPhone,
         job_title: jobTitle,
         message,
-      })
+      }))
 
     if (insertError) {
       console.error('Claim insert error:', insertError)

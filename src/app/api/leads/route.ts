@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { withTrade } from '@/lib/trade-scope'
 import { sendNotification } from '@/lib/email'
 import { pushLeadToGHL } from '@/lib/ghl'
 
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
 
     const { data: lead, error } = await supabase
       .from('leads')
-      .insert({
+      .insert(withTrade({
         contractor_id,
         name,
         email,
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
         budget_band: budget_band ?? null,
         timing: timing ?? null,
         quote_request_id: quote_request_id ?? null,
-      })
+      }))
       .select()
       .single()
 

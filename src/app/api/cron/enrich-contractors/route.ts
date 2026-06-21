@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 // Reads each commercial contractor's website, infers its commercial-capability
 // fields (system types, building types, 24/7, SLAs, etc.) AND writes the
@@ -139,10 +140,11 @@ export async function GET(request: NextRequest) {
   let query = db
     .from('contractors')
     .select('id, company_name, city, state, website')
+    .eq('trade', TRADE_KEY)
     .or(`description.is.null,description.eq.`)
 
   if (onlyId) {
-    query = db.from('contractors').select('id, company_name, city, state, website').eq('id', onlyId)
+    query = db.from('contractors').select('id, company_name, city, state, website').eq('trade', TRADE_KEY).eq('id', onlyId)
   } else {
     // commercial only — use the precise flag (name keywords miss e.g. "Atlas AC Repair")
     query = query.eq('commercial_verified', true)
@@ -173,6 +175,7 @@ export async function GET(request: NextRequest) {
   let remQuery = db
     .from('contractors')
     .select('id', { count: 'exact', head: true })
+    .eq('trade', TRADE_KEY)
     .or('description.is.null,description.eq.')
     .eq('commercial_verified', true)
   if (stateFilter) remQuery = remQuery.eq('state', stateFilter)

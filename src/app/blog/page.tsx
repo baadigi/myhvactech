@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { Calendar, Clock, ArrowRight, Newspaper } from 'lucide-react'
 import AuthorAvatar from '@/components/AuthorAvatar'
 import { SITE_URL } from '@/lib/constants'
@@ -75,6 +76,7 @@ export default async function BlogListingPage({
       'id, title, slug, excerpt, body, cover_image_url, category, author_name, published_at, tags',
       { count: 'exact' }
     )
+    .eq('trade', TRADE_KEY)
     .eq('status', 'published')
     .order('published_at', { ascending: false })
 

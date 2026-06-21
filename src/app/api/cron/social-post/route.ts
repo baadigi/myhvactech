@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY } from '@/lib/trade-scope'
 import { SITE_URL } from '@/lib/constants'
 
 // Auto-posts to social (FB / Instagram / Pinterest / Threads) via GHL Social
@@ -181,6 +182,7 @@ export async function GET(request: NextRequest) {
   const { data: fresh } = await db
     .from('blog_posts')
     .select('id, title, slug, excerpt, category, cover_image_url, social_share_count')
+    .eq('trade', TRADE_KEY)
     .eq('status', 'published')
     .is('social_posted_at', null)
     .not('cover_image_url', 'is', null)
@@ -195,6 +197,7 @@ export async function GET(request: NextRequest) {
     const { data: old } = await db
       .from('blog_posts')
       .select('id, title, slug, excerpt, category, cover_image_url, social_share_count')
+      .eq('trade', TRADE_KEY)
       .eq('status', 'published')
       .not('cover_image_url', 'is', null)
       .order('social_share_count', { ascending: true })

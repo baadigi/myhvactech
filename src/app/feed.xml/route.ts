@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { SITE_NAME, SITE_URL, SITE_DESCRIPTION } from '@/lib/constants'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 3600 // Cache for 1 hour
@@ -23,6 +24,7 @@ export async function GET() {
   const { data: posts } = await db
     .from('blog_posts')
     .select('title, slug, excerpt, body, author_name, author_email, category, published_at, cover_image_url, tags, updated_at')
+    .eq('trade', TRADE_KEY)
     .eq('status', 'published')
     .not('published_at', 'is', null)
     .order('published_at', { ascending: false })

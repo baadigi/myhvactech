@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
 
 // Token-authed bulk importer for the Serper-Maps commercial sweep.
 // POST { rows: [{company_name, city, state, phone, website, street_address,
@@ -73,21 +74,21 @@ export async function POST(request: NextRequest) {
   const placeIds = [...new Set(records.map((r) => r.google_place_id).filter(Boolean) as string[])]
   const existingPlaceIds = new Set<string>()
   for (let i = 0; i < placeIds.length; i += 200) {
-    const { data } = await db.from('contractors').select('google_place_id').in('google_place_id', placeIds.slice(i, i + 200))
+    const { data } = await db.from('contractors').select('google_place_id').eq('trade', TRADE_KEY).in('google_place_id', placeIds.slice(i, i + 200))
     data?.forEach((d: { google_place_id: string | null }) => d.google_place_id && existingPlaceIds.add(d.google_place_id))
   }
 
   const slugs = [...new Set(records.map((r) => r.slug))]
   const existingSlugs = new Set<string>()
   for (let i = 0; i < slugs.length; i += 200) {
-    const { data } = await db.from('contractors').select('slug').in('slug', slugs.slice(i, i + 200))
+    const { data } = await db.from('contractors').select('slug').eq('trade', TRADE_KEY).in('slug', slugs.slice(i, i + 200))
     data?.forEach((d: { slug: string }) => existingSlugs.add(d.slug))
   }
 
   // Phone dedup needs all existing phones (can't .in() on a derived value)
   const existingPhones = new Set<string>()
   {
-    const { data } = await db.from('contractors').select('phone').not('phone', 'is', null)
+    const { data } = await db.from('contractors').select('phone').eq('trade', TRADE_KEY).not('phone', 'is', null)
     data?.forEach((d: { phone: string | null }) => { const n = norm(d.phone); if (n.length === 10) existingPhones.add(n) })
   }
 
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
       subscription_tier: 'free',
       profile_views: 0,
     }))
-    const { data, error } = await db.from('contractors').insert(batch).select('id')
+    const { data, error } = await db.from('contractors').insert(withTrade(batch)).select('id')
     if (error) return NextResponse.json({ imported, skipped, error: error.message }, { status: 500 })
     imported += data?.length ?? 0
   }
