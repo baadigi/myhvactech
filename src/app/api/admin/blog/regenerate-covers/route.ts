@@ -24,27 +24,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'OPENAI_API_KEY not configured' }, { status: 500 })
   }
 
-  let limit = 50
+  // gpt-image-1 takes ~15-30s per image, so process a SMALL batch per call and
+  // let the client loop until `remaining` is 0 (avoids the function timeout).
+  let limit = 4
   let onlyAuto = false
   try {
     const body = await request.json().catch(() => ({}))
-    if (typeof body.limit === 'number' && body.limit > 0) limit = Math.min(body.limit, 100)
+    if (typeof body.limit === 'number' && body.limit > 0) limit = Math.min(body.limit, 8)
     if (body.onlyAuto === true) onlyAuto = true
   } catch { /* no body — defaults */ }
 
   const db = createAdminClient()
 
+  // Skip posts already regenerated (cover already on the -cover-v2 path) so each
+  // call advances to the next batch and re-runs are resumable.
   let q = db
     .from('blog_posts')
     .select('id, slug, title')
     .eq('status', 'published')
+    .not('cover_image_url', 'ilike', '%-cover-v2%')
     .order('published_at', { ascending: true })
     .limit(limit)
   if (onlyAuto) q = q.eq('is_auto_generated', true)
 
   const { data: posts, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!posts?.length) return NextResponse.json({ success: true, regenerated: 0, results: [] })
+  if (!posts?.length) return NextResponse.json({ success: true, regenerated: 0, remaining: 0, results: [] })
 
   const results: { slug: string; status: 'updated' | string }[] = []
 
@@ -72,5 +77,15 @@ export async function POST(request: Request) {
   }
 
   const regenerated = results.filter((r) => r.status === 'updated').length
-  return NextResponse.json({ success: true, regenerated, total: posts.length, results })
+
+  // How many published posts still have an old (non-v2) cover?
+  let remQ = db
+    .from('blog_posts')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'published')
+    .not('cover_image_url', 'ilike', '%-cover-v2%')
+  if (onlyAuto) remQ = remQ.eq('is_auto_generated', true)
+  const { count: remaining } = await remQ
+
+  return NextResponse.json({ success: true, regenerated, batch: posts.length, remaining: remaining ?? 0, results })
 }

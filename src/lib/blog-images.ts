@@ -40,7 +40,8 @@ export function imagePrompt(subject: string, title: string): string {
 export async function generateAndStoreImage(
   db: AdminDb,
   prompt: string,
-  path: string
+  path: string,
+  size: '1536x1024' | '1024x1024' | '1024x1536' = '1536x1024'
 ): Promise<string | null> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) return null
@@ -55,7 +56,7 @@ export async function generateAndStoreImage(
       body: JSON.stringify({
         model: 'gpt-image-1',
         prompt,
-        size: '1536x1024',
+        size,
         n: 1,
         output_format: 'webp',
         output_compression: 80,

@@ -71,6 +71,7 @@ export default function AdminBlogPage() {
   const [generating, setGenerating] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [regenCovers, setRegenCovers] = useState(false)
+  const [genAvatar, setGenAvatar] = useState(false)
   const [scanResult, setScanResult] = useState<string | null>(null)
 
   // Filters
@@ -180,19 +181,48 @@ export default function AdminBlogPage() {
     setRegenCovers(true)
     setScanResult(null)
     try {
-      const res = await fetch('/api/admin/blog/regenerate-covers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 100 }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Regeneration failed')
-      setScanResult(`Regenerated ${data.regenerated}/${data.total} cover images`)
+      // gpt-image-1 is slow, so the route does a few at a time — loop until done.
+      let done = 0
+      let remaining = 1
+      let guard = 0
+      while (remaining > 0 && guard < 50) {
+        guard++
+        const res = await fetch('/api/admin/blog/regenerate-covers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: 4 }),
+        })
+        const text = await res.text()
+        let data: { regenerated?: number; remaining?: number; error?: string }
+        try { data = JSON.parse(text) } catch { throw new Error('Server timed out on a batch — click again to resume') }
+        if (!res.ok) throw new Error(data.error || 'Regeneration failed')
+        done += data.regenerated ?? 0
+        remaining = data.remaining ?? 0
+        setScanResult(`Regenerating covers… ${done} done, ${remaining} left`)
+        if ((data.regenerated ?? 0) === 0 && remaining > 0) throw new Error('A batch made no progress — click again to resume')
+      }
+      setScanResult(`Done — regenerated ${done} cover image${done === 1 ? '' : 's'}`)
       fetchPosts()
     } catch (err) {
-      setScanResult(`Failed to regenerate covers: ${err instanceof Error ? err.message : 'error'}`)
+      setScanResult(`Cover regen: ${err instanceof Error ? err.message : 'error'}`)
     } finally {
       setRegenCovers(false)
+    }
+  }
+
+  const handleGenerateAvatar = async () => {
+    if (!confirm('Generate the brand author avatar (a commercial HVAC tech)? This replaces the current byline image.')) return
+    setGenAvatar(true)
+    setScanResult(null)
+    try {
+      const res = await fetch('/api/admin/blog/generate-author-avatar', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Generation failed')
+      setScanResult('Author avatar generated — hard-refresh the blog to see it in the byline')
+    } catch (err) {
+      setScanResult(`Avatar: ${err instanceof Error ? err.message : 'error'}`)
+    } finally {
+      setGenAvatar(false)
     }
   }
 
@@ -355,6 +385,18 @@ export default function AdminBlogPage() {
               <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
             </svg>
             Regenerate Covers
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGenerateAvatar}
+            loading={genAvatar}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M6 21v-1a6 6 0 0 1 12 0v1"/>
+            </svg>
+            Generate Avatar
           </Button>
           <Button
             variant="outline"

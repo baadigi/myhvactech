@@ -2,7 +2,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
-import { Calendar, Clock, User, ArrowRight, Newspaper } from 'lucide-react'
+import { Calendar, Clock, ArrowRight, Newspaper } from 'lucide-react'
+import AuthorAvatar from '@/components/AuthorAvatar'
 import { SITE_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
@@ -208,8 +209,8 @@ export default async function BlogListingPage({
                       )}
                       <div className="mt-4 pt-4 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-500">
                         <div className="flex items-center gap-3">
-                          <span className="inline-flex items-center gap-1">
-                            <User className="w-3.5 h-3.5" />
+                          <span className="inline-flex items-center gap-1.5">
+                            <AuthorAvatar className="w-5 h-5" />
                             {post.author_name || 'My HVAC Tech'}
                           </span>
                           <span className="inline-flex items-center gap-1">

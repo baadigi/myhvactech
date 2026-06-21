@@ -3,7 +3,8 @@ import Image from 'next/image'
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { ArrowLeft, Calendar, Clock, User, Tag, ExternalLink, Newspaper } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, Tag, ExternalLink, Newspaper } from 'lucide-react'
+import AuthorAvatar from '@/components/AuthorAvatar'
 import { BlogPostSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 import { SITE_URL } from '@/lib/constants'
 
@@ -172,8 +173,8 @@ export default async function BlogPostPage({
             <Clock className="w-3.5 h-3.5" />
             {readTime} min read
           </span>
-          <span className="inline-flex items-center gap-1 text-sm text-neutral-500">
-            <User className="w-3.5 h-3.5" />
+          <span className="inline-flex items-center gap-1.5 text-sm text-neutral-500">
+            <AuthorAvatar className="w-6 h-6" />
             {typedPost.author_name || 'My HVAC Tech'}
           </span>
         </div>
