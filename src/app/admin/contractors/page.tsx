@@ -256,16 +256,31 @@ export default function AdminContractorsPage() {
     setSyncAllLoading(true)
     setSyncMessage(null)
     try {
-      const res = await fetch('/api/admin/google-sync', { method: 'PATCH' })
-      const data = await res.json()
-      if (!res.ok) {
-        setSyncMessage(data.error || 'Batch sync failed')
-        return
+      // The route syncs a small batch per call (timeout-safe) and returns
+      // `remaining` — loop until everything unsynced/stale is done.
+      let done = 0
+      let remaining = 1
+      let guard = 0
+      while (remaining > 0 && guard < 300) {
+        guard++
+        const res = await fetch('/api/admin/google-sync', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: 50 }),
+        })
+        const text = await res.text()
+        let data: { synced?: number; remaining?: number; batch?: number; error?: string }
+        try { data = JSON.parse(text) } catch { throw new Error('Server timed out on a batch — click again to resume') }
+        if (!res.ok) { setSyncMessage(data.error || 'Batch sync failed'); return }
+        done += data.synced ?? 0
+        remaining = data.remaining ?? 0
+        setSyncMessage(`Syncing Google data… ${done} synced, ${remaining} left`)
+        if ((data.batch ?? 0) === 0) break
       }
-      setSyncMessage(`Batch sync: ${data.synced}/${data.total} contractors synced`)
+      setSyncMessage(`Done — synced ${done} contractor${done === 1 ? '' : 's'} from Google`)
       fetchContractors()
     } catch (err) {
-      setSyncMessage(`Batch sync failed: ${err instanceof Error ? err.message : 'network error'}`)
+      setSyncMessage(`Sync: ${err instanceof Error ? err.message : 'network error'}`)
     } finally {
       setSyncAllLoading(false)
     }
