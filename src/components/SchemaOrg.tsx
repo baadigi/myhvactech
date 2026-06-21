@@ -32,7 +32,12 @@ export function OrganizationSchema() {
       email: 'info@myhvac.tech',
       contactType: 'customer service',
     },
-    sameAs: [],
+    sameAs: [
+      'https://www.facebook.com/myhvactech',
+      'https://www.instagram.com/myhvac.tech',
+      'https://www.pinterest.com/myhvactech/',
+      'https://www.threads.com/@myhvac.tech',
+    ],
     description: SITE_DESCRIPTION,
   }
   return <JsonLd data={data} />
