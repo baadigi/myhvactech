@@ -1,7 +1,6 @@
 import { MetadataRoute } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { SITE_URL, HVAC_SERVICES, US_STATES } from '@/lib/constants'
-import { TRADE_KEY } from '@/lib/trade-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,7 +54,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const { data: contractors } = await supabase
       .from('contractors')
       .select('slug, updated_at, city, state')
-      .eq('trade', TRADE_KEY)
       .neq('subscription_status', 'cancelled')
 
     if (contractors) {
@@ -128,7 +126,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const { data: blogPosts } = await supabase
       .from('blog_posts')
       .select('slug, published_at, updated_at')
-      .eq('trade', TRADE_KEY)
       .eq('status', 'published')
       .not('published_at', 'is', null)
 
