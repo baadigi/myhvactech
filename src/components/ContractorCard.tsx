@@ -244,15 +244,21 @@ export default function ContractorCard({
             </Button>
 
             {contractor.phone && (
-              <a
-                href={`tel:${contractor.phone}`}
+              // Not an <a> — this card is already wrapped in a <Link> (<a>), and
+              // nesting anchors is invalid HTML and causes a hydration mismatch.
+              <button
+                type="button"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 text-sm text-neutral-700 font-medium hover:bg-neutral-50 hover:border-neutral-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  window.location.href = `tel:${contractor.phone}`
+                }}
                 aria-label={`Call ${contractor.company_name}`}
               >
                 <Phone size={14} aria-hidden="true" />
                 {formatPhoneNumber(contractor.phone)}
-              </a>
+              </button>
             )}
           </div>
         </div>
