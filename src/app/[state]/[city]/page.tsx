@@ -1,8 +1,8 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { MapPin, ChevronRight, Shield, Star, Clock, CheckCircle, Search } from 'lucide-react'
-import { US_STATES, HVAC_SERVICES, SITE_URL } from '@/lib/constants'
+import { MapPin, ChevronRight, Shield, Star, Clock, CheckCircle, Search, Building2 } from 'lucide-react'
+import { US_STATES, HVAC_SERVICES, SYSTEM_TYPES, SITE_URL } from '@/lib/constants'
 import { FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
@@ -31,29 +31,30 @@ function getStateObj(stateSlug: string) {
 
 // ─── Data Fetching ───────────────────────────────────────────────────────────
 
-async function getContractorsForCity(city: string, stateAbbr: string): Promise<Contractor[]> {
+async function getContractorsForCity(city: string, stateAbbr: string, stateName: string): Promise<Contractor[]> {
   const db = createAdminClient()
 
+  // State is stored inconsistently (e.g. "CA" and "California") — match both.
   const { data } = await db
     .from('contractors')
     .select('*')
     .ilike('city', city)
-    .ilike('state', stateAbbr)
+    .or(`state.ilike.${stateAbbr},state.ilike.${stateName}`)
     .neq('subscription_status', 'cancelled')
-    .order('is_verified', { ascending: false })
-    .order('avg_rating', { ascending: false })
+    .order('google_review_count', { ascending: false, nullsFirst: false })
+    .order('google_rating', { ascending: false, nullsFirst: false })
     .limit(20)
 
   return (data ?? []) as unknown as Contractor[]
 }
 
-async function getNearbyCities(city: string, stateAbbr: string): Promise<string[]> {
+async function getNearbyCities(city: string, stateAbbr: string, stateName: string): Promise<string[]> {
   const db = createAdminClient()
 
   const { data } = await db
     .from('contractors')
     .select('city')
-    .ilike('state', stateAbbr)
+    .or(`state.ilike.${stateAbbr},state.ilike.${stateName}`)
     .neq('subscription_status', 'cancelled')
 
   if (!data) return []
@@ -68,6 +69,33 @@ async function getNearbyCities(city: string, stateAbbr: string): Promise<string[
 
   // Return up to 8 nearby cities, sorted alphabetically
   return Array.from(citySet).sort().slice(0, 8)
+}
+
+// ─── Derived city stats (real data only — no fabricated metrics) ──────────────
+
+function getCityStats(contractors: Contractor[]) {
+  const rated = contractors.filter(
+    (c) => c.google_rating != null && (c.google_review_count ?? 0) > 0
+  )
+  const totalReviews = rated.reduce((s, c) => s + (c.google_review_count ?? 0), 0)
+  const avgRating = totalReviews
+    ? rated.reduce((s, c) => s + (c.google_rating ?? 0) * (c.google_review_count ?? 0), 0) / totalReviews
+    : 0
+  const emergency = contractors.filter((c) => c.offers_24_7).length
+
+  const systemSet = new Set<string>()
+  for (const c of contractors) for (const s of c.system_types ?? []) systemSet.add(s)
+  const systemLabels = Array.from(systemSet)
+    .map((v) => SYSTEM_TYPES.find((s) => s.value === v)?.label ?? v)
+
+  return {
+    count: contractors.length,
+    ratedCount: rated.length,
+    totalReviews,
+    avgRating,
+    emergency,
+    systemLabels,
+  }
 }
 
 // ─── Static Params ────────────────────────────────────────────────────────────
@@ -127,12 +155,33 @@ export default async function CityPage({ params }: Props) {
   if (!stateObj) notFound()
 
   const [contractors, nearbyCities] = await Promise.all([
-    getContractorsForCity(cityName, stateObj.abbr),
-    getNearbyCities(cityName, stateObj.abbr),
+    getContractorsForCity(cityName, stateObj.abbr, stateObj.name),
+    getNearbyCities(cityName, stateObj.abbr, stateObj.name),
   ])
 
-  const faq = getFAQ(cityName, stateObj.abbr)
-  const contractorCount = contractors.length
+  const stats = getCityStats(contractors)
+  const contractorCount = stats.count
+
+  const faq = [
+    ...(stats.ratedCount
+      ? [{
+          q: `How many commercial HVAC contractors are in ${cityName}, ${stateObj.abbr}?`,
+          a: `My HVAC Tech lists ${stats.count} commercial HVAC contractors serving ${cityName}, ${stateObj.abbr}, with a combined ${stats.totalReviews.toLocaleString()} Google reviews averaging ${stats.avgRating.toFixed(1)} stars.${stats.emergency ? ` ${stats.emergency} of them offer 24/7 emergency service.` : ''}`,
+        }]
+      : []),
+    ...getFAQ(cityName, stateObj.abbr),
+  ]
+
+  // Unique, data-driven intro sentence (varies by real numbers + local system mix).
+  const reviewLine = stats.ratedCount
+    ? ` carrying a combined ${stats.totalReviews.toLocaleString()} Google reviews at an average of ${stats.avgRating.toFixed(1)} stars`
+    : ''
+  const emergencyLine = stats.emergency
+    ? ` ${stats.emergency} offer 24/7 emergency response.`
+    : ''
+  const systemLine = stats.systemLabels.length
+    ? ` Local crews service ${stats.systemLabels.slice(0, 4).join(', ')}${stats.systemLabels.length > 4 ? ', and more' : ''}.`
+    : ''
 
   return (
     <main className="min-h-screen bg-neutral-50">
@@ -157,21 +206,26 @@ export default async function CityPage({ params }: Props) {
             Best Commercial HVAC Contractors in {cityName}, {stateObj.abbr}
           </h1>
           <p className="text-lg text-neutral-600 max-w-3xl leading-relaxed">
-            Compare {cityName}&apos;s top commercial HVAC companies. Read verified reviews from property managers and facility directors, request free quotes, and hire the right contractor for your building.
+            Compare {contractorCount} commercial HVAC {contractorCount === 1 ? 'company' : 'companies'} serving {cityName}, {stateObj.abbr}
+            {reviewLine}.{emergencyLine}{systemLine} Request free quotes and hire the right contractor for your building.
           </p>
           <div className="flex flex-wrap gap-3 mt-5 text-sm text-neutral-600">
             <span className="flex items-center gap-1.5">
-              <Star size={14} className="text-warning" aria-hidden="true" />
-              {contractorCount} verified contractor{contractorCount !== 1 ? 's' : ''}
+              <Building2 size={14} className="text-primary-500" aria-hidden="true" />
+              {contractorCount} commercial contractor{contractorCount !== 1 ? 's' : ''}
             </span>
-            <span className="flex items-center gap-1.5">
-              <Shield size={14} className="text-accent-500" aria-hidden="true" />
-              License checked
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Clock size={14} className="text-neutral-400" aria-hidden="true" />
-              Free quotes in 2 hours
-            </span>
+            {stats.ratedCount > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Star size={14} className="text-warning" aria-hidden="true" />
+                {stats.avgRating.toFixed(1)}★ avg · {stats.totalReviews.toLocaleString()} Google reviews
+              </span>
+            )}
+            {stats.emergency > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Clock size={14} className="text-neutral-400" aria-hidden="true" />
+                {stats.emergency} offer 24/7 emergency
+              </span>
+            )}
           </div>
         </div>
       </section>
@@ -240,9 +294,9 @@ export default async function CityPage({ params }: Props) {
           <h2 className="text-xl font-bold mb-6">Why Choose My HVAC Tech in {cityName}?</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {[
-              { icon: <CheckCircle size={18} aria-hidden="true" />, title: 'Verified Contractors Only', desc: 'We confirm licenses and insurance before any contractor is listed.' },
-              { icon: <Star size={18} aria-hidden="true" />, title: 'Real Commercial Reviews', desc: 'Reviews from property managers, facility directors, and building owners — not homeowners.' },
-              { icon: <Clock size={18} aria-hidden="true" />, title: 'Fast Quote Responses', desc: 'Most contractors respond to quote requests within 2 business hours.' },
+              { icon: <Building2 size={18} aria-hidden="true" />, title: 'Commercial-Focused Only', desc: 'Every contractor listed works on commercial buildings — RTUs, chillers, VRF — not residential.' },
+              { icon: <Star size={18} aria-hidden="true" />, title: 'Real Google Reviews', desc: 'Ratings pulled from verified Google Business Profiles — not anonymous form submissions.' },
+              { icon: <Clock size={18} aria-hidden="true" />, title: 'Compare in One Place', desc: 'Side-by-side systems serviced, ratings, and contact info — no calling around.' },
               { icon: <Shield size={18} aria-hidden="true" />, title: 'Free to Use', desc: 'No cost to search, compare, or request quotes. Ever.' },
             ].map(({ icon, title, desc }) => (
               <div key={title} className="flex items-start gap-3">
