@@ -57,6 +57,7 @@ export default function AdminContractorsPage() {
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [syncAllLoading, setSyncAllLoading] = useState(false)
+  const [backfillRunning, setBackfillRunning] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [genQueueRunning, setGenQueueRunning] = useState(false)
@@ -270,6 +271,41 @@ export default function AdminContractorsPage() {
     }
   }
 
+  // Discover Google Place IDs for contractors that don't have one, then sync.
+  // Loops in batches until none remain.
+  const backfillPlaceIds = async () => {
+    setBackfillRunning(true)
+    setSyncMessage(null)
+    try {
+      let remaining = 1
+      let foundTotal = 0
+      let notFoundTotal = 0
+      while (remaining > 0) {
+        const res = await fetch('/api/admin/google-backfill', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: 75 }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setSyncMessage(data.error || 'Backfill failed')
+          return
+        }
+        foundTotal += data.found ?? 0
+        notFoundTotal += data.not_found ?? 0
+        remaining = data.remaining ?? 0
+        setSyncMessage(`Finding contractors on Google… ${foundTotal} matched, ${notFoundTotal} not found, ${remaining} left`)
+        if ((data.processed ?? 0) === 0) break
+      }
+      setSyncMessage(`Done — ${foundTotal} contractors matched & synced from Google${notFoundTotal ? `, ${notFoundTotal} had no Google match` : ''}`)
+      fetchContractors()
+    } catch (err) {
+      setSyncMessage(`Backfill failed: ${err instanceof Error ? err.message : 'network error'}`)
+    } finally {
+      setBackfillRunning(false)
+    }
+  }
+
   const generateDescription = async (id: string) => {
     setGeneratingId(id)
     setSyncMessage(null)
@@ -404,8 +440,20 @@ export default function AdminContractorsPage() {
           <Button
             size="sm"
             variant="outline"
+            onClick={backfillPlaceIds}
+            loading={backfillRunning}
+            disabled={backfillRunning || syncAllLoading}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            Find Missing on Google
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             onClick={genQueueRunning ? () => { genQueueCancelRef.current = true } : generateAllDescriptions}
-            disabled={syncAllLoading}
+            disabled={syncAllLoading || backfillRunning}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7L12 16.4 5.7 21l2.3-7L2 9.4h7.6z"/>
