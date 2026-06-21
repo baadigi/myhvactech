@@ -2,7 +2,10 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+
+// ISR: blog posts are public, published-only reads — cache + refresh hourly.
+export const revalidate = 3600
 import { ArrowLeft, Calendar, Clock, Tag, ExternalLink, Newspaper } from 'lucide-react'
 import AuthorAvatar from '@/components/AuthorAvatar'
 import { BlogPostSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
@@ -54,7 +57,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>
 }): Promise<Metadata> {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: post } = await supabase
     .from('blog_posts')
@@ -91,7 +94,7 @@ export default async function BlogPostPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: post } = await supabase
     .from('blog_posts')
