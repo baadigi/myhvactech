@@ -104,6 +104,16 @@ export default function Footer() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <a
+                  href="https://www.baadigi.com/services/seo/hvac"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-neutral-400 hover:text-white transition-colors"
+                >
+                  HVAC Marketing
+                </a>
+              </li>
             </ul>
           </div>
         </div>
