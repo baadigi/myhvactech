@@ -152,5 +152,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
-  return routes
+  // Dedupe by URL — slug normalization (e.g. "St. Louis" vs "St Louis") can emit
+  // the same URL twice, which surfaces as "page in multiple sitemaps" once Next
+  // splits the sitemap into chunks. Keep the first entry for each URL.
+  return Array.from(new Map(routes.map(r => [r.url, r])).values())
 }

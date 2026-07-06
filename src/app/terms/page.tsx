@@ -377,7 +377,7 @@ export default function TermsPage() {
                   Email: <a href={`mailto:${CONTACT_EMAIL}`} className="text-sky-600 hover:underline">{CONTACT_EMAIL}</a>
                 </p>
                 <p className="text-sm text-neutral-600 mt-1">
-                  Website: <a href="https://myhvac.tech" className="text-sky-600 hover:underline">myhvac.tech</a>
+                  Website: <a href="https://www.myhvac.tech" className="text-sky-600 hover:underline">myhvac.tech</a>
                 </p>
               </div>
             </div>
