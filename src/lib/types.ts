@@ -6,6 +6,8 @@ export interface Contractor {
   company_name: string
   slug: string
   description: string | null
+  description_draft: string | null
+  faq: { question: string; answer: string }[] | null
   short_description: string | null
   logo_url: string | null
   cover_image_url: string | null
