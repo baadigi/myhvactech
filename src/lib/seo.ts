@@ -17,3 +17,18 @@ export function clampDescription(desc: string, max = 160): string {
   const lastSpace = cut.lastIndexOf(' ')
   return (lastSpace > 60 ? cut.slice(0, lastSpace) : cut).trimEnd() + '…'
 }
+
+// Cleans a blog body's inline <img> tags before they're rendered raw:
+//  1. Routes raster (png/jpg) images through the weserv proxy as width-capped
+//     WebP — kills the oversized-image issue without re-uploading anything.
+//  2. Guarantees every <img> has an alt (falls back to the post title).
+export function optimizeBlogBody(html: string, altFallback: string): string {
+  const alt = altFallback.replace(/"/g, '&quot;')
+  return html
+    .replace(
+      /(<img\b[^>]*\bsrc=")(https?:\/\/[^"]+\.(?:png|jpe?g))(?:\?[^"]*)?"/gi,
+      (_m, pre, url) =>
+        `${pre}https://images.weserv.nl/?url=${encodeURIComponent(url)}&w=1200&output=webp&q=82"`,
+    )
+    .replace(/<img(?![^>]*\salt=)/gi, `<img alt="${alt}"`)
+}

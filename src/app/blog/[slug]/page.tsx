@@ -15,6 +15,7 @@ import { ArrowLeft, Calendar, Clock, Tag, ExternalLink, Newspaper } from 'lucide
 import AuthorAvatar from '@/components/AuthorAvatar'
 import { BlogPostSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 import { SITE_URL } from '@/lib/constants'
+import { optimizeBlogBody } from '@/lib/seo'
 
 const CATEGORY_LABELS: Record<string, string> = {
   'industry-news': 'Industry News',
@@ -198,17 +199,12 @@ export default async function BlogPostPage({
           {typedPost.title}
         </h1>
 
-        {/* Article Body — inject alt on any inline <img> missing it (falls back
-            to the post title) so AI-generated bodies never ship imgs without alt. */}
+        {/* Article Body — optimizeBlogBody proxies inline raster imgs to WebP
+            via weserv and guarantees alt text (falls back to the post title). */}
         {typedPost.body && (
           <div
             className="blog-content"
-            dangerouslySetInnerHTML={{
-              __html: typedPost.body.replace(
-                /<img(?![^>]*\salt=)/gi,
-                `<img alt="${typedPost.title.replace(/"/g, '&quot;')}"`,
-              ),
-            }}
+            dangerouslySetInnerHTML={{ __html: optimizeBlogBody(typedPost.body, typedPost.title) }}
           />
         )}
 
