@@ -180,39 +180,84 @@ export function generateFallback(c: ContractorRow): string {
 }
 
 // ── Quick-Answers question bank ──────────────────────────────────────────────
-// High-intent questions people/AI ask when choosing a commercial HVAC contractor.
-// Each listing gets 3, chosen by its own facts + a rotation seed so the ~5k listings
-// don't all repeat the same trio. The model only ANSWERS these (grounded) — it does
-// not phrase them, which is what keeps them varied and on-topic at scale.
+// High-intent questions people/AI ask about commercial HVAC. Stems + phrasing are
+// derived from real Ahrefs commercial-HVAC search demand (repair, installation,
+// maintenance, replacement, RTUs, service agreements, cost, lifespan, inspection…).
+// Each listing gets 3 chosen from DISTINCT categories by its own facts + a per-listing
+// seed, so the ~5k listings don't repeat the same trio. The model only ANSWERS these
+// (grounded, answer-first) — it never phrases them, which keeps them on-topic at scale.
+// Duplicate content is prevented by the *answers* being grounded per-company, not by the
+// questions; advisory (general) questions are capped at 1 per listing via category spread.
+type QCat = 'opener' | 'services' | 'systems' | 'ops' | 'cost' | 'advisory'
 interface QTemplate {
   id: string
+  cat: QCat
   applies: (c: ContractorRow) => boolean
   q: (c: ContractorRow) => string
 }
 
 const cityState = (c: ContractorRow) => `${c.city}, ${c.state}`
-const firstSystemLabel = (c: ContractorRow) =>
+const sysLabel = (c: ContractorRow) =>
   c.system_types?.length ? (SYSTEM_LABELS[c.system_types[0]] || c.system_types[0]).replace(/\s*\(.*\)/, '') : ''
-const firstBuildingLabel = (c: ContractorRow) =>
+const bldgLabel = (c: ContractorRow) =>
   c.building_types_served?.length ? (BUILDING_LABELS[c.building_types_served[0]] || c.building_types_served[0]) : ''
+const has = (c: ContractorRow, k: string) => !!c.system_types?.includes(k)
 
 const QA_BANK: QTemplate[] = [
-  { id: 'best', applies: () => true, q: (c) => `What makes ${c.company_name} a strong choice for commercial HVAC in ${cityState(c)}?` },
-  { id: 'choose', applies: () => true, q: (c) => `How do I choose a reliable commercial HVAC contractor in ${c.city}?` },
-  { id: 'commercial', applies: () => true, q: (c) => `Does ${c.company_name} handle commercial HVAC, not just residential systems?` },
-  { id: 'services', applies: () => true, q: (c) => `What commercial HVAC services does ${c.company_name} provide in ${c.city}?` },
-  { id: 'area', applies: () => true, q: (c) => `What areas around ${c.city} does ${c.company_name} serve?` },
-  { id: 'cost', applies: () => true, q: (c) => `How much does commercial HVAC service cost in ${c.city}?` },
-  { id: '247', applies: (c) => c.offers_24_7 || !!c.emergency_response_minutes, q: (c) => `Who offers 24/7 emergency commercial HVAC service in ${c.city}?` },
-  { id: 'response', applies: (c) => !!c.emergency_response_minutes, q: (c) => `How fast can ${c.company_name} respond to an HVAC emergency in ${c.city}?` },
-  { id: 'systems', applies: (c) => !!c.system_types?.length, q: (c) => `Does ${c.company_name} service ${firstSystemLabel(c)} for commercial buildings?` },
-  { id: 'buildings', applies: (c) => !!c.building_types_served?.length, q: (c) => `Does ${c.company_name} work on HVAC for ${firstBuildingLabel(c)} in ${c.city}?` },
-  { id: 'multisite', applies: (c) => c.multi_site_coverage, q: (c) => `Can ${c.company_name} manage HVAC across multiple ${c.state} locations?` },
-  { id: 'maintenance', applies: (c) => c.offers_service_agreements, q: (c) => `Does ${c.company_name} offer commercial HVAC maintenance agreements?` },
-  { id: 'brands', applies: (c) => !!c.brands_serviced?.length, q: (c) => `Is ${c.company_name} certified to service ${c.brands_serviced[0]} equipment?` },
-  { id: 'reviews', applies: (c) => !!c.google_review_count, q: (c) => `Is ${c.company_name} a well-reviewed HVAC contractor in ${c.city}?` },
-  { id: 'tenure', applies: (c) => !!(c.year_established || c.years_commercial_experience), q: (c) => `How long has ${c.company_name} served the ${c.city} area?` },
-  { id: 'licensed', applies: (c) => !!(c.license_number || c.insurance_verified), q: (c) => `Is ${c.company_name} licensed and insured for commercial HVAC work?` },
+  // Openers — "which contractor / is this one credible" (one always leads)
+  { id: 'best', cat: 'opener', applies: () => true, q: (c) => `What makes ${c.company_name} a strong choice for commercial HVAC in ${cityState(c)}?` },
+  { id: 'choose', cat: 'opener', applies: () => true, q: (c) => `How do I choose a reliable commercial HVAC contractor in ${c.city}?` },
+  { id: 'commercial', cat: 'opener', applies: () => true, q: (c) => `Does ${c.company_name} handle commercial HVAC, not just residential systems?` },
+  { id: 'nearme', cat: 'opener', applies: () => true, q: (c) => `Where can I find commercial HVAC contractors near ${c.city}?` },
+  { id: 'reviews', cat: 'opener', applies: (c) => !!c.google_review_count, q: (c) => `Is ${c.company_name} a well-reviewed commercial HVAC company in ${c.city}?` },
+  { id: 'tenure', cat: 'opener', applies: (c) => !!(c.year_established || c.years_commercial_experience), q: (c) => `How long has ${c.company_name} provided commercial HVAC service in ${c.city}?` },
+  { id: 'licensed', cat: 'opener', applies: (c) => !!(c.license_number || c.insurance_verified), q: (c) => `Is ${c.company_name} a licensed and insured commercial HVAC contractor?` },
+
+  // Services — the money keywords
+  { id: 'services', cat: 'services', applies: () => true, q: (c) => `What commercial HVAC services does ${c.company_name} provide in ${c.city}?` },
+  { id: 'repair', cat: 'services', applies: () => true, q: (c) => `Does ${c.company_name} offer commercial HVAC repair in ${c.city}?` },
+  { id: 'installation', cat: 'services', applies: () => true, q: (c) => `Does ${c.company_name} handle commercial HVAC installation in ${c.city}?` },
+  { id: 'maintenance', cat: 'services', applies: () => true, q: (c) => `Does ${c.company_name} provide commercial HVAC maintenance in ${c.city}?` },
+  { id: 'replacement', cat: 'services', applies: () => true, q: (c) => `Does ${c.company_name} handle commercial HVAC replacement?` },
+  { id: 'ductcleaning', cat: 'services', applies: () => true, q: (c) => `Does ${c.company_name} offer commercial HVAC duct cleaning?` },
+  { id: 'iaq', cat: 'services', applies: () => true, q: (c) => `Does ${c.company_name} provide indoor air quality services for commercial buildings?` },
+  { id: 'energyeff', cat: 'services', applies: () => true, q: (c) => `Does ${c.company_name} install energy-efficient HVAC systems for commercial buildings?` },
+
+  // Systems — gated to what the listing actually services
+  { id: 'systemslist', cat: 'systems', applies: (c) => !!c.system_types?.length, q: (c) => `What commercial HVAC systems does ${c.company_name} service?` },
+  { id: 'rtu', cat: 'systems', applies: (c) => has(c, 'rtu'), q: (c) => `Does ${c.company_name} service and repair commercial rooftop units (RTUs)?` },
+  { id: 'chiller', cat: 'systems', applies: (c) => has(c, 'chilled_water'), q: (c) => `Does ${c.company_name} service commercial chillers and chilled water systems?` },
+  { id: 'vrf', cat: 'systems', applies: (c) => has(c, 'vrf'), q: (c) => `Does ${c.company_name} install and service VRF/VRV systems?` },
+  { id: 'boiler', cat: 'systems', applies: (c) => has(c, 'boiler'), q: (c) => `Does ${c.company_name} service commercial boiler systems?` },
+  { id: 'heatpump', cat: 'systems', applies: (c) => has(c, 'heat_pump'), q: (c) => `Does ${c.company_name} service commercial heat pumps?` },
+  { id: 'onesystem', cat: 'systems', applies: (c) => !!c.system_types?.length, q: (c) => `Does ${c.company_name} service ${sysLabel(c)} for commercial buildings?` },
+  { id: 'multizone', cat: 'systems', applies: (c) => (c.system_types?.length || 0) >= 3, q: (c) => `Who installs multi-zone commercial HVAC systems in ${c.city}?` },
+
+  // Ops — availability, coverage, agreements, building types
+  { id: 'emergency', cat: 'ops', applies: (c) => c.offers_24_7 || !!c.emergency_response_minutes, q: (c) => `Does ${c.company_name} offer 24/7 emergency commercial HVAC service in ${c.city}?` },
+  { id: 'response', cat: 'ops', applies: (c) => !!c.emergency_response_minutes, q: (c) => `How fast can ${c.company_name} respond to a commercial HVAC emergency?` },
+  { id: 'area', cat: 'ops', applies: () => true, q: (c) => `What areas around ${c.city} does ${c.company_name} serve?` },
+  { id: 'multisite', cat: 'ops', applies: (c) => c.multi_site_coverage, q: (c) => `Can ${c.company_name} manage commercial HVAC across multiple ${c.state} locations?` },
+  { id: 'agreement', cat: 'ops', applies: (c) => c.offers_service_agreements, q: (c) => `Does ${c.company_name} offer commercial HVAC maintenance contracts or service agreements?` },
+  { id: 'preventive', cat: 'ops', applies: () => true, q: (c) => `Does ${c.company_name} provide preventive maintenance for commercial HVAC systems?` },
+  { id: 'buildings', cat: 'ops', applies: (c) => !!c.building_types_served?.length, q: (c) => `What types of commercial buildings does ${c.company_name} service in ${c.city}?` },
+  { id: 'onebuilding', cat: 'ops', applies: (c) => !!c.building_types_served?.length, q: (c) => `Does ${c.company_name} work on HVAC for ${bldgLabel(c)} in ${c.city}?` },
+  { id: 'brands', cat: 'ops', applies: (c) => !!c.brands_serviced?.length, q: (c) => `Is ${c.company_name} certified to service ${c.brands_serviced[0]} commercial equipment?` },
+
+  // Cost
+  { id: 'servicecost', cat: 'cost', applies: () => true, q: (c) => `How much does commercial HVAC service cost in ${c.city}?` },
+  { id: 'systemcost', cat: 'cost', applies: () => true, q: () => `How much does a commercial HVAC system cost?` },
+  { id: 'unitcost', cat: 'cost', applies: () => true, q: () => `How much does a commercial HVAC unit cost?` },
+  { id: 'quote', cat: 'cost', applies: () => true, q: (c) => `How do I get a quote for commercial HVAC work from ${c.company_name}?` },
+
+  // Advisory — real informational demand; answered generally + tied to the company/city.
+  // Category spread caps these at 1 per listing so shared general text can't stack up.
+  { id: 'lifespan', cat: 'advisory', applies: () => true, q: () => `How long do commercial HVAC systems last?` },
+  { id: 'whenreplace', cat: 'advisory', applies: () => true, q: () => `When should a commercial HVAC system be replaced?` },
+  { id: 'filters', cat: 'advisory', applies: () => true, q: () => `How often should commercial HVAC filters be changed?` },
+  { id: 'inspection', cat: 'advisory', applies: () => true, q: () => `What is included in a commercial HVAC inspection?` },
+  { id: 'maintainhow', cat: 'advisory', applies: () => true, q: () => `How should a commercial HVAC system be maintained?` },
+  { id: 'whatis', cat: 'advisory', applies: () => true, q: () => `What is commercial HVAC and how does it differ from residential?` },
 ]
 
 function seedFrom(s: string): number {
@@ -221,18 +266,34 @@ function seedFrom(s: string): number {
   return h
 }
 
-// Pick 3 applicable questions: always lead with a distinct "why this company"/"how to
-// choose" opener, then rotate through the rest by a per-listing seed so neighbors differ.
+// Pick 3 questions: one opener + two from DISTINCT other categories, chosen by a
+// per-listing seed. Category spread guarantees variety (no 3 cost questions) and caps
+// general "advisory" answers at 1, protecting against duplicate content across listings.
 export function selectQaQuestions(c: ContractorRow): string[] {
   const seed = seedFrom(c.id || `${c.company_name}|${c.city}`)
-  const applicable = QA_BANK.filter((t) => t.applies(c))
-  const openers = applicable.filter((t) => t.id === 'best' || t.id === 'choose' || t.id === 'commercial')
-  const rest = applicable.filter((t) => !openers.includes(t))
-  const opener = openers[seed % openers.length]
-  // Rotate the remaining pool by seed, take 2 distinct.
-  const rotated = rest.map((t, i) => ({ t, k: (i + seed) % rest.length })).sort((a, b) => a.k - b.k).map((x) => x.t)
-  const picks = [opener, ...rotated.slice(0, 2)].filter(Boolean)
-  return picks.map((t) => t.q(c))
+  const app = QA_BANK.filter((t) => t.applies(c))
+  const openers = app.filter((t) => t.cat === 'opener')
+  const rest = app.filter((t) => t.cat !== 'opener')
+
+  const picks: QTemplate[] = []
+  if (openers.length) picks.push(openers[seed % openers.length])
+
+  const cats = [...new Set(rest.map((t) => t.cat))]
+  const rotatedCats = cats
+    .map((cat, i) => ({ cat, k: (i + seed) % (cats.length || 1) }))
+    .sort((a, b) => a.k - b.k)
+    .map((x) => x.cat)
+  for (const cat of rotatedCats) {
+    if (picks.length >= 3) break
+    const pool = rest.filter((t) => t.cat === cat)
+    if (pool.length) picks.push(pool[seed % pool.length])
+  }
+  // Fallback: top up from any remaining applicable question if we came up short.
+  for (const t of rest) {
+    if (picks.length >= 3) break
+    if (!picks.includes(t)) picks.push(t)
+  }
+  return picks.slice(0, 3).map((t) => t.q(c))
 }
 
 const SYSTEM_PROMPT = `You are an expert commercial HVAC writer for MyHVAC.Tech — a directory for property managers and facility managers who run commercial buildings (NOT homeowners).
