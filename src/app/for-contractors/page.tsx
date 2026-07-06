@@ -11,7 +11,7 @@ import { SUBSCRIPTION_TIERS, SITE_URL } from '@/lib/constants'
 export const metadata: Metadata = {
   title: 'Get Commercial HVAC Leads from Property Managers',
   description:
-    'We route high-value quote requests from facility managers and property directors to vetted contractors. No residential leads. No tire-kickers. Claim your market slot.',
+    'We route high-value quote requests from facility and property managers to vetted contractors. No residential leads, no tire-kickers. Claim your market slot.',
   alternates: { canonical: `${SITE_URL}/for-contractors` },
   openGraph: {
     title: 'Get Matched with Commercial Property Managers',

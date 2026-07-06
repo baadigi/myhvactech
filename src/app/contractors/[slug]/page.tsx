@@ -18,6 +18,7 @@ import { formatPhoneNumber, externalUrl } from '@/lib/utils'
 import { BreadcrumbSchema } from '@/components/SchemaOrg'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TRADE_KEY } from '@/lib/trade-scope'
+import { clampTitle, clampDescription } from '@/lib/seo'
 
 // ISR: cache at the edge, refresh hourly (public service-role data only).
 // generateStaticParams (even empty) is required to opt a dynamic route into
@@ -167,11 +168,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!contractor) return { title: 'Contractor Not Found' }
 
+  const rawTitle = contractor.meta_title
+    ? contractor.meta_title.replace(/\s*\|\s*My HVAC Tech\s*$/i, '')
+    : `${contractor.company_name} — ${contractor.city}, ${contractor.state}`
+
   return {
-    title: contractor.meta_title
-      ? contractor.meta_title.replace(/\s*\|\s*My HVAC Tech\s*$/i, '')
-      : `${contractor.company_name} — ${contractor.city}, ${contractor.state}`,
-    description: contractor.meta_description || `View profile, reviews, and contact information for ${contractor.company_name} in ${contractor.city}, ${contractor.state}. ${contractor.review_count} verified reviews.`,
+    // `absolute` opts out of the global "%s | My HVAC Tech" template so the
+    // clamp is a true 60-char budget (no hidden +15 suffix pushing it over).
+    title: { absolute: clampTitle(rawTitle) },
+    description: clampDescription(contractor.meta_description || `${contractor.company_name} is a commercial HVAC contractor serving ${contractor.city}, ${contractor.state}. View services, verified reviews and ratings, contact info, and request a free quote on My HVAC Tech.`),
     alternates: { canonical: `${SITE_URL}/contractors/${slug}` },
     openGraph: {
       title: contractor.company_name,

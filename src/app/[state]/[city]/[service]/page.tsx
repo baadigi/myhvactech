@@ -8,6 +8,7 @@ import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TRADE_KEY } from '@/lib/trade-scope'
+import { clampTitle, clampDescription } from '@/lib/seo'
 
 // ISR: cache at the edge, refresh hourly (public service-role data only).
 export const revalidate = 3600
@@ -139,8 +140,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const shouldIndex = contractors.length >= 3
 
   return {
-    title: `${serviceObj.name} in ${cityName}, ${stateObj.abbr}`,
-    description: `Find the best ${serviceObj.name.toLowerCase()} contractors in ${cityName}, ${stateObj.abbr}. Compare verified reviews, pricing, and request free quotes from licensed professionals.`,
+    title: { absolute: clampTitle(`${serviceObj.name} in ${cityName}, ${stateObj.abbr} | My HVAC Tech`) },
+    description: clampDescription(`Find the best ${serviceObj.name.toLowerCase()} contractors in ${cityName}, ${stateObj.abbr}. Compare verified reviews, pricing, and request free quotes from licensed professionals.`),
     alternates: { canonical: `${SITE_URL}/${state}/${city}/${service}` },
     ...(!shouldIndex && { robots: { index: false, follow: true } }),
     openGraph: {

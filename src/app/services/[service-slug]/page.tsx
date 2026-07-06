@@ -6,6 +6,7 @@ import {
   CheckCircle, ChevronRight, Search, MapPin, HelpCircle
 } from 'lucide-react'
 import { HVAC_SERVICES, SITE_URL } from '@/lib/constants'
+import { clampDescription } from '@/lib/seo'
 import { ServiceSchema, FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -79,7 +80,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: `${service.name} Contractors`,
-    description: `Find licensed ${service.name.toLowerCase()} contractors near you. Compare verified reviews, request free quotes, and hire certified commercial HVAC professionals.`,
+    description: clampDescription(`Find licensed ${service.name.toLowerCase()} contractors near you. Compare verified reviews, request free quotes, and hire certified commercial HVAC professionals.`),
     alternates: { canonical: `${SITE_URL}/services/${service.slug}` },
     openGraph: {
       title: `${service.name} — Commercial HVAC Contractors`,

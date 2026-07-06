@@ -6,7 +6,7 @@ import { BreadcrumbSchema, ItemListSchema } from '@/components/SchemaOrg'
 
 const TITLE = 'Commercial HVAC Resources & Tools'
 const DESC =
-  'Free tools and guides for property and facility managers: estimate commercial HVAC costs, vet contractors, and plan maintenance — then get quotes from vetted pros.'
+  'Free tools for property and facility managers: estimate commercial HVAC costs, vet contractors, and plan maintenance — then get quotes from vetted pros.'
 
 export const metadata: Metadata = {
   title: TITLE,

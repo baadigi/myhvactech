@@ -198,11 +198,17 @@ export default async function BlogPostPage({
           {typedPost.title}
         </h1>
 
-        {/* Article Body */}
+        {/* Article Body — inject alt on any inline <img> missing it (falls back
+            to the post title) so AI-generated bodies never ship imgs without alt. */}
         {typedPost.body && (
           <div
             className="blog-content"
-            dangerouslySetInnerHTML={{ __html: typedPost.body }}
+            dangerouslySetInnerHTML={{
+              __html: typedPost.body.replace(
+                /<img(?![^>]*\salt=)/gi,
+                `<img alt="${typedPost.title.replace(/"/g, '&quot;')}"`,
+              ),
+            }}
           />
         )}
 

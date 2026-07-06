@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { TRADE_KEY } from '@/lib/trade-scope'
-import { SITE_URL } from '@/lib/constants'
+import { clampTitle } from '@/lib/seo'
 import ClaimListingClient from './ClaimListingClient'
 
 interface Props {
@@ -23,9 +23,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!contractor) return { title: 'Listing Not Found' }
 
   return {
-    title: `Claim ${contractor.company_name} — ${contractor.city}, ${contractor.state}`,
+    title: { absolute: clampTitle(`Claim ${contractor.company_name} — ${contractor.city}, ${contractor.state}`) },
     description: `Claim and manage the listing for ${contractor.company_name} on My HVAC Tech. Verify ownership to update your profile, respond to reviews, and receive leads.`,
-    robots: { index: false, follow: false }, // Don't index claim pages
+    // Noindex (utility page) but follow so link equity flows back to the profile.
+    robots: { index: false, follow: true },
   }
 }
 
