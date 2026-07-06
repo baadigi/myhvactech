@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
     let description: string
     let shortDescription = ''
     let metaDescription = ''
+    let qa: FaqItem[] = []
     let faq: FaqItem[] = []
     let source: 'claude' | 'template'
 
@@ -103,6 +104,7 @@ export async function POST(request: NextRequest) {
       description = gen.description
       shortDescription = gen.short
       metaDescription = gen.meta
+      qa = gen.qa
       faq = gen.faq
       source = 'claude'
     } catch (aiErr) {
@@ -127,6 +129,7 @@ export async function POST(request: NextRequest) {
           description,
           short_description: shortDescription,
           meta_description: metaDescription,
+          ...(qa.length > 0 ? { qa_snippets: qa } : {}),
           ...(faq.length > 0 ? { faq } : {}),
         })
         .eq('id', contractor_id)
@@ -140,6 +143,7 @@ export async function POST(request: NextRequest) {
       description,
       short_description: shortDescription,
       meta_description: metaDescription,
+      qa_snippets: qa,
       faq,
       source,
       saved: !!(save && contractor_id),

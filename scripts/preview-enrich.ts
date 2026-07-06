@@ -13,7 +13,7 @@ const rows: (ContractorRow & { id: string; slug: string; website?: string | null
   JSON.parse(readFileSync(inPath, 'utf8'))
 
 async function main() {
-  const results: { id: string; slug: string; description_draft: string; faq: unknown[]; words: number }[] = []
+  const results: { id: string; slug: string; description_draft: string; qa: unknown[]; faq: unknown[]; words: number }[] = []
   for (const c of rows) {
     const url = c.website || c.google_website || null
     try {
@@ -23,10 +23,11 @@ async function main() {
         id: c.id,
         slug: c.slug,
         description_draft: gen.description,
+        qa: gen.qa,
         faq: gen.faq,
         words: gen.description.split(/\s+/).length,
       })
-      console.log(`✓ ${c.company_name} — ${gen.description.split(/\s+/).length}w, ${gen.faq.length} FAQ${site ? '' : ' (no site)'}`)
+      console.log(`✓ ${c.company_name} — ${gen.qa.length} QA, ${gen.description.split(/\s+/).length}w, ${gen.faq.length} FAQ${site ? '' : ' (no site)'}`)
     } catch (e) {
       console.log(`✗ ${c.company_name} — ${e instanceof Error ? e.message : e}`)
     }

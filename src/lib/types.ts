@@ -7,6 +7,7 @@ export interface Contractor {
   slug: string
   description: string | null
   description_draft: string | null
+  qa_snippets: { question: string; answer: string }[] | null
   faq: { question: string; answer: string }[] | null
   short_description: string | null
   logo_url: string | null

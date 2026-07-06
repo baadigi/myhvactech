@@ -407,6 +407,24 @@ export default function ContractorProfileTabs({ contractor }: Props) {
             </section>
           )}
 
+          {/* Quick Answers — AI-citable Q&A snippets, above the About body */}
+          {contractor.qa_snippets && contractor.qa_snippets.length > 0 && (
+            <section>
+              <h2 className="text-base font-semibold text-neutral-900 mb-3 flex items-center gap-2">
+                <Zap size={16} className="text-primary-500" aria-hidden="true" />
+                Quick Answers
+              </h2>
+              <div className="space-y-3">
+                {contractor.qa_snippets.map((item, i) => (
+                  <div key={i} className="rounded-lg border border-primary-100 bg-primary-50/40 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-neutral-900 mb-1">{item.question}</h3>
+                    <p className="text-sm text-neutral-700 leading-relaxed">{item.answer}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Description — draft (staged/preview) takes precedence over live description */}
           {(Boolean(contractor.description_draft) || Boolean(contractor.description) || Boolean(contractor.google_editorial_summary)) && (
             <section>

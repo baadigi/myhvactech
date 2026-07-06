@@ -269,9 +269,13 @@ export default async function ContractorProfilePage({ params }: Props) {
         { name: contractor.city, url: `${SITE_URL}/${stateSlug}/${citySlug}` },
         { name: contractor.company_name, url: `${SITE_URL}/contractors/${contractor.slug}` },
       ]} />
-      {Array.isArray(contractor.faq) && contractor.faq.length > 0 && (
-        <FAQSchema items={contractor.faq} />
-      )}
+      {(() => {
+        const schemaItems = [
+          ...(Array.isArray(contractor.qa_snippets) ? contractor.qa_snippets : []),
+          ...(Array.isArray(contractor.faq) ? contractor.faq : []),
+        ]
+        return schemaItems.length > 0 ? <FAQSchema items={schemaItems} /> : null
+      })()}
 
       <main className="min-h-screen bg-neutral-50">
 

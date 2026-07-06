@@ -30,6 +30,7 @@ const BUILDING_LABELS: Record<string, string> = {
 }
 
 export interface ContractorRow {
+  id?: string
   company_name: string
   city: string
   state: string
@@ -73,7 +74,8 @@ export interface ListingContent {
   description: string
   short: string
   meta: string
-  faq: FaqItem[]
+  qa: FaqItem[]   // top "Quick Answers" snippets — the 3 highest-intent questions AI/searchers ask
+  faq: FaqItem[]  // detailed operational FAQ
 }
 
 export function buildFactSheet(c: ContractorRow): string {
@@ -177,11 +179,68 @@ export function generateFallback(c: ContractorRow): string {
   return parts.join(' ')
 }
 
+// ── Quick-Answers question bank ──────────────────────────────────────────────
+// High-intent questions people/AI ask when choosing a commercial HVAC contractor.
+// Each listing gets 3, chosen by its own facts + a rotation seed so the ~5k listings
+// don't all repeat the same trio. The model only ANSWERS these (grounded) — it does
+// not phrase them, which is what keeps them varied and on-topic at scale.
+interface QTemplate {
+  id: string
+  applies: (c: ContractorRow) => boolean
+  q: (c: ContractorRow) => string
+}
+
+const cityState = (c: ContractorRow) => `${c.city}, ${c.state}`
+const firstSystemLabel = (c: ContractorRow) =>
+  c.system_types?.length ? (SYSTEM_LABELS[c.system_types[0]] || c.system_types[0]).replace(/\s*\(.*\)/, '') : ''
+const firstBuildingLabel = (c: ContractorRow) =>
+  c.building_types_served?.length ? (BUILDING_LABELS[c.building_types_served[0]] || c.building_types_served[0]) : ''
+
+const QA_BANK: QTemplate[] = [
+  { id: 'best', applies: () => true, q: (c) => `What makes ${c.company_name} a strong choice for commercial HVAC in ${cityState(c)}?` },
+  { id: 'choose', applies: () => true, q: (c) => `How do I choose a reliable commercial HVAC contractor in ${c.city}?` },
+  { id: 'commercial', applies: () => true, q: (c) => `Does ${c.company_name} handle commercial HVAC, not just residential systems?` },
+  { id: 'services', applies: () => true, q: (c) => `What commercial HVAC services does ${c.company_name} provide in ${c.city}?` },
+  { id: 'area', applies: () => true, q: (c) => `What areas around ${c.city} does ${c.company_name} serve?` },
+  { id: 'cost', applies: () => true, q: (c) => `How much does commercial HVAC service cost in ${c.city}?` },
+  { id: '247', applies: (c) => c.offers_24_7 || !!c.emergency_response_minutes, q: (c) => `Who offers 24/7 emergency commercial HVAC service in ${c.city}?` },
+  { id: 'response', applies: (c) => !!c.emergency_response_minutes, q: (c) => `How fast can ${c.company_name} respond to an HVAC emergency in ${c.city}?` },
+  { id: 'systems', applies: (c) => !!c.system_types?.length, q: (c) => `Does ${c.company_name} service ${firstSystemLabel(c)} for commercial buildings?` },
+  { id: 'buildings', applies: (c) => !!c.building_types_served?.length, q: (c) => `Does ${c.company_name} work on HVAC for ${firstBuildingLabel(c)} in ${c.city}?` },
+  { id: 'multisite', applies: (c) => c.multi_site_coverage, q: (c) => `Can ${c.company_name} manage HVAC across multiple ${c.state} locations?` },
+  { id: 'maintenance', applies: (c) => c.offers_service_agreements, q: (c) => `Does ${c.company_name} offer commercial HVAC maintenance agreements?` },
+  { id: 'brands', applies: (c) => !!c.brands_serviced?.length, q: (c) => `Is ${c.company_name} certified to service ${c.brands_serviced[0]} equipment?` },
+  { id: 'reviews', applies: (c) => !!c.google_review_count, q: (c) => `Is ${c.company_name} a well-reviewed HVAC contractor in ${c.city}?` },
+  { id: 'tenure', applies: (c) => !!(c.year_established || c.years_commercial_experience), q: (c) => `How long has ${c.company_name} served the ${c.city} area?` },
+  { id: 'licensed', applies: (c) => !!(c.license_number || c.insurance_verified), q: (c) => `Is ${c.company_name} licensed and insured for commercial HVAC work?` },
+]
+
+function seedFrom(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return h
+}
+
+// Pick 3 applicable questions: always lead with a distinct "why this company"/"how to
+// choose" opener, then rotate through the rest by a per-listing seed so neighbors differ.
+export function selectQaQuestions(c: ContractorRow): string[] {
+  const seed = seedFrom(c.id || `${c.company_name}|${c.city}`)
+  const applicable = QA_BANK.filter((t) => t.applies(c))
+  const openers = applicable.filter((t) => t.id === 'best' || t.id === 'choose' || t.id === 'commercial')
+  const rest = applicable.filter((t) => !openers.includes(t))
+  const opener = openers[seed % openers.length]
+  // Rotate the remaining pool by seed, take 2 distinct.
+  const rotated = rest.map((t, i) => ({ t, k: (i + seed) % rest.length })).sort((a, b) => a.k - b.k).map((x) => x.t)
+  const picks = [opener, ...rotated.slice(0, 2)].filter(Boolean)
+  return picks.map((t) => t.q(c))
+}
+
 const SYSTEM_PROMPT = `You are an expert commercial HVAC writer for MyHVAC.Tech — a directory for property managers and facility managers who run commercial buildings (NOT homeowners).
 
-You write in the National LLM-SEO format so the page is quotable by AI answer engines (ChatGPT, Perplexity, Google AI Overviews) AND ranks in classic search:
-1. The BODY opens with a direct-answer lead — one or two sentences that answer "who is this contractor and what do they do best" in a self-contained, quotable way (name + city + strongest real differentiator). Then 2–4 short E-E-A-T paragraphs of substance.
-2. A separate FAQ list of 3–5 real questions a facility manager would ask, each answered in 1–3 self-contained sentences.
+You write in the National LLM-SEO format so the page is quotable by AI answer engines (ChatGPT, Perplexity, Google AI Overviews) AND ranks in classic search. Three parts, in this order:
+1. QUICK ANSWERS ("qa") — you are GIVEN exactly 3 questions. Use each question VERBATIM and write an ANSWER-FIRST answer of 1–2 fully self-contained sentences (the answer must make sense quoted alone, without the question). These are the AI-citable snippets. Lead each answer with the company name + the concrete grounded fact. For a general question (e.g. cost) where you lack a specific figure, give an honest, useful answer (what it depends on + that the company provides quotes) — never invent numbers.
+2. The BODY ("description") — a direct-answer lead sentence, then 2–4 short E-E-A-T paragraphs of substance. Do NOT just repeat the Quick Answers verbatim; go deeper.
+3. FAQ ("faq") — 3–5 more detailed/operational questions a facility manager would ask, each answered in 1–3 self-contained sentences. Different questions from the Quick Answers.
 
 HARD RULES:
 - GROUNDING: Use ONLY facts in the CONTRACTOR FACTS or WEBSITE CONTENT provided. NEVER invent years in business, certifications, license numbers, crew size, brands, response times, or claims. If a fact is not given, do not state it. This is the most important rule.
@@ -193,15 +252,21 @@ HARD RULES:
 - Every sentence carries new information. No filler.
 - If data is thin, it's fine to be shorter and factual rather than padded. Lean on the city/metro's real commercial HVAC context (climate, common building types given) without inventing company specifics.`
 
-function buildUserPrompt(factSheet: string, websiteText: string | null): string {
+function buildUserPrompt(factSheet: string, websiteText: string | null, qaQuestions: string[]): string {
   const websiteSection = websiteText
     ? `\n\nWEBSITE CONTENT (extract real facts only — services, history, certifications, service areas; do not copy sentences verbatim):\n${websiteText}`
     : ''
   return `CONTRACTOR FACTS (verified data — the ONLY facts you may state):
 ${factSheet}${websiteSection}
 
+QUICK-ANSWER QUESTIONS (answer these 3 verbatim, in this order):
+${qaQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+
 Return ONLY a valid JSON object, no prose around it, in exactly this shape:
 {
+  "qa": [
+    { "question": "<use the given question verbatim>", "answer": "Answer-first, 1–2 self-contained sentences that read well quoted alone." }
+  ],
   "description": "The About body. Direct-answer lead sentence first, then 2–4 short paragraphs separated by blank lines. 180–320 words. Plain text, no markdown.",
   "short_description": "150–160 chars for the listing card. Include city + top real differentiator.",
   "meta_description": "150–160 chars SEO meta. Include company name, city, and a CTA like 'verified reviews' or 'free quotes'.",
@@ -209,7 +274,7 @@ Return ONLY a valid JSON object, no prose around it, in exactly this shape:
     { "question": "...", "answer": "1–3 self-contained sentences, grounded in the facts." }
   ]
 }
-Provide 3–5 FAQ items. Ensure the JSON parses.`
+Provide EXACTLY 3 "qa" items and 3–5 "faq" items (different questions). Ensure the JSON parses.`
 }
 
 interface GenOpts {
@@ -227,6 +292,7 @@ export async function generateListingContent(
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
   const factSheet = buildFactSheet(c)
+  const qaQuestions = selectQaQuestions(c)
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -238,7 +304,7 @@ export async function generateListingContent(
       model: opts.model || 'claude-sonnet-4-6',
       max_tokens: 2000,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: buildUserPrompt(factSheet, websiteText) }],
+      messages: [{ role: 'user', content: buildUserPrompt(factSheet, websiteText, qaQuestions) }],
     }),
   })
   if (!response.ok) {
@@ -255,16 +321,18 @@ export async function generateListingContent(
   const end = jsonStr.lastIndexOf('}')
   const parsed = JSON.parse(jsonStr.slice(start, end + 1))
 
-  const faq: FaqItem[] = Array.isArray(parsed.faq)
-    ? parsed.faq
-        .filter((f: FaqItem) => f && f.question && f.answer)
-        .map((f: FaqItem) => ({ question: String(f.question).trim(), answer: String(f.answer).trim() }))
-    : []
+  const cleanItems = (arr: unknown): FaqItem[] =>
+    Array.isArray(arr)
+      ? (arr as FaqItem[])
+          .filter((f) => f && f.question && f.answer)
+          .map((f) => ({ question: String(f.question).trim(), answer: String(f.answer).trim() }))
+      : []
 
   return {
     description: String(parsed.description || '').trim(),
     short: String(parsed.short_description || '').trim().slice(0, 160),
     meta: String(parsed.meta_description || parsed.short_description || '').trim().slice(0, 160),
-    faq,
+    qa: cleanItems(parsed.qa).slice(0, 3),
+    faq: cleanItems(parsed.faq),
   }
 }
