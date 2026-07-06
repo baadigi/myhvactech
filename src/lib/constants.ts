@@ -1,5 +1,7 @@
 export const SITE_NAME = 'My HVAC Tech'
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://myhvac.tech'
+// Canonical host = www (apex 308-redirects to www in Vercel). Strip any trailing
+// slash so `${SITE_URL}/path` can't produce double slashes.
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.myhvac.tech').replace(/\/+$/, '')
 export const SITE_DESCRIPTION = 'The commercial HVAC marketplace for property and facility managers. Find vetted contractors by building type, system, and service — not homeowners, not residential.'
 
 export const SITE_TAGLINE = 'Commercial HVAC. Vetted Contractors. Real Results.'

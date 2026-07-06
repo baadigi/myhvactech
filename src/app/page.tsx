@@ -6,10 +6,16 @@ import ContractorCard from '@/components/ContractorCard'
 import ServiceCard from '@/components/ServiceCard'
 import CityCard from '@/components/CityCard'
 import { Button } from '@/components/ui/Button'
-import { HVAC_SERVICES, US_STATES } from '@/lib/constants'
+import { HVAC_SERVICES, US_STATES, SITE_URL } from '@/lib/constants'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TRADE_KEY } from '@/lib/trade-scope'
 import type { Contractor, Service } from '@/lib/types'
+import type { Metadata } from 'next'
+
+// Self-referencing canonical for the homepage (other pages set their own).
+export const metadata: Metadata = {
+  alternates: { canonical: SITE_URL },
+}
 
 // ——————————————————————————————————————————
 // Testimonials from facility/property managers
