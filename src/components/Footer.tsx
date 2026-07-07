@@ -122,9 +122,10 @@ export default function Footer() {
       {/* Bottom bar */}
       <div className="border-t border-neutral-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-neutral-500">
-            &copy; {currentYear} My HVAC Tech. All rights reserved.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-3 text-xs text-neutral-500">
+            <p>&copy; {currentYear} My HVAC Tech. All rights reserved.</p>
+            <p>3839 McKinney Avenue, Suite 155, Dallas, TX 75204</p>
+          </div>
           <div className="flex items-center gap-4">
             <a
               href="https://www.facebook.com/myhvactech"
