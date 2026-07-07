@@ -8,7 +8,7 @@ import {
   Building2, Thermometer, Wrench, Award, ShieldCheck, Users,
   AlertTriangle, ClipboardList, Timer, Cpu
 } from 'lucide-react'
-import { SITE_URL, SYSTEM_TYPES, SERVICE_AGREEMENT_TYPES, US_STATES } from '@/lib/constants'
+import { SITE_URL, SYSTEM_TYPES, SERVICE_AGREEMENT_TYPES, US_STATES, HVAC_SERVICES } from '@/lib/constants'
 import type { Contractor, Review, ContractorPhoto, SampleProject, GoogleReview } from '@/lib/types'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -254,6 +254,7 @@ export default async function ContractorProfilePage({ params }: Props) {
            s.name.toLowerCase() === contractor.state.toLowerCase()
   )
   const stateName = stateMatch?.name ?? contractor.state
+  const stateAbbr = stateMatch?.abbr ?? contractor.state
   const stateSlug = stateName.toLowerCase().replace(/\s+/g, '-')
   const citySlug = contractor.city.toLowerCase().replace(/\s+/g, '-')
 
@@ -712,6 +713,33 @@ export default async function ContractorProfilePage({ params }: Props) {
               </div>
             </div>
           )}
+
+          {/* ── Internal links: cluster → city hub + service pillars ─────────── */}
+          <div className="pb-16 border-t border-neutral-200 pt-8">
+            <h2 className="text-lg font-semibold text-neutral-900 mb-1">Commercial HVAC in {contractor.city}, {stateAbbr}</h2>
+            <p className="text-sm text-neutral-500 mb-4">
+              Explore commercial HVAC contractors and services across {contractor.city}.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/${stateSlug}/${citySlug}`}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary-50 border border-primary-200 text-primary-700 text-sm font-medium px-3 py-2 hover:bg-primary-100 transition-colors"
+              >
+                All Commercial HVAC Contractors in {contractor.city}, {stateAbbr}
+              </Link>
+              {HVAC_SERVICES
+                .filter((s) => ['commercial-hvac-repair', 'commercial-hvac-service', 'commercial-hvac-installation', 'commercial-hvac-maintenance', 'emergency-hvac-service', 'commercial-hvac-replacement'].includes(s.slug))
+                .map((s) => (
+                  <Link
+                    key={s.slug}
+                    href={`/${stateSlug}/${citySlug}/${s.slug}`}
+                    className="inline-flex items-center rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm px-3 py-2 hover:border-primary-300 hover:text-primary-700 transition-colors"
+                  >
+                    {s.name} in {contractor.city}
+                  </Link>
+                ))}
+            </div>
+          </div>
 
         </div>
       </main>
