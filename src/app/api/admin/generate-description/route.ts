@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TRADE_KEY } from '@/lib/trade-scope'
+import {
+  type ContractorRow,
+  type FaqItem,
+  fetchWebsiteContent,
+  generateListingContent,
+  generateFallback,
+} from '@/lib/listing-content'
 
 const ADMIN_EMAIL = 'ryan@baadigi.com'
 
@@ -11,379 +18,7 @@ async function isAdmin() {
   return user?.email === ADMIN_EMAIL
 }
 
-// System type display names
-const SYSTEM_LABELS: Record<string, string> = {
-  rtu: 'Rooftop Units (RTUs)',
-  split_system: 'Split Systems',
-  chilled_water: 'Chilled Water / Chiller Systems',
-  vrf: 'VRF/VRV Systems',
-  boiler: 'Boiler Systems',
-  ahu: 'Air Handling Units',
-  ptac: 'PTAC Units',
-  heat_pump: 'Heat Pumps',
-  geothermal: 'Geothermal Systems',
-  ductless_mini_split: 'Ductless Mini-Splits',
-}
-
-// Building type display names
-const BUILDING_LABELS: Record<string, string> = {
-  office: 'Office Buildings',
-  retail: 'Retail Spaces',
-  industrial: 'Industrial / Warehouse',
-  healthcare: 'Healthcare Facilities',
-  education: 'Educational Institutions',
-  hospitality: 'Hotels & Hospitality',
-  data_center: 'Data Centers',
-  multi_family: 'Multi-Family Residential',
-  government: 'Government Buildings',
-  restaurant: 'Restaurants & Food Service',
-  mixed_use: 'Mixed-Use Properties',
-}
-
-interface ContractorRow {
-  company_name: string
-  city: string
-  state: string
-  year_established: number | null
-  system_types: string[]
-  building_types_served: string[]
-  brands_serviced: string[]
-  emergency_response_minutes: number | null
-  offers_24_7: boolean
-  multi_site_coverage: boolean
-  max_sites_supported: number | null
-  num_technicians: number | null
-  num_nate_certified: number | null
-  years_commercial_experience: number | null
-  offers_service_agreements: boolean
-  service_agreement_types: string[]
-  sla_summary: string | null
-  google_rating: number | null
-  google_review_count: number | null
-  google_editorial_summary: string | null
-  google_formatted_address: string | null
-  google_phone: string | null
-  google_website: string | null
-  google_reviews: { author_name: string; text: string; rating: number }[] | null
-  tonnage_range_min: number | null
-  tonnage_range_max: number | null
-  service_radius_miles: number
-  license_number: string | null
-  insurance_verified: boolean
-  uses_gps_tracking: boolean
-  dispatch_crm: string | null
-  description: string | null
-}
-
-function buildFactSheet(c: ContractorRow): string {
-  const facts: string[] = []
-
-  facts.push(`Company: ${c.company_name}`)
-  facts.push(`Location: ${c.google_formatted_address || `${c.city}, ${c.state}`}`)
-  if (c.year_established) facts.push(`Established: ${c.year_established}`)
-  if (c.years_commercial_experience) facts.push(`Commercial experience: ${c.years_commercial_experience} years`)
-  if (c.service_radius_miles) facts.push(`Service radius: ${c.service_radius_miles} miles`)
-
-  if (c.google_rating && c.google_review_count) {
-    facts.push(`Google rating: ${c.google_rating}/5 (${c.google_review_count} reviews)`)
-  }
-  if (c.google_editorial_summary) {
-    facts.push(`Google description: ${c.google_editorial_summary}`)
-  }
-
-  // Include Google review snippets for voice/personality cues
-  if (c.google_reviews && c.google_reviews.length > 0) {
-    const topReviews = c.google_reviews
-      .filter((r) => r.text && r.text.length > 20 && r.rating >= 4)
-      .slice(0, 5)
-    if (topReviews.length > 0) {
-      facts.push(`\nNotable customer reviews:`)
-      for (const r of topReviews) {
-        facts.push(`- "${r.text.slice(0, 300)}" — ${r.author_name}`)
-      }
-    }
-  }
-
-  if (c.system_types.length > 0) {
-    const labels = c.system_types.map((st) => SYSTEM_LABELS[st] || st)
-    facts.push(`Systems serviced: ${labels.join(', ')}`)
-  }
-  if (c.tonnage_range_min != null && c.tonnage_range_max != null) {
-    facts.push(`Tonnage range: ${c.tonnage_range_min}–${c.tonnage_range_max} tons`)
-  }
-  if (c.building_types_served.length > 0) {
-    const labels = c.building_types_served.map((bt) => BUILDING_LABELS[bt] || bt)
-    facts.push(`Building types: ${labels.join(', ')}`)
-  }
-  if (c.brands_serviced.length > 0) {
-    facts.push(`Brands: ${c.brands_serviced.join(', ')}`)
-  }
-  if (c.num_technicians) {
-    facts.push(`Technicians: ${c.num_technicians}${c.num_nate_certified ? ` (${c.num_nate_certified} NATE-certified)` : ''}`)
-  }
-  if (c.offers_24_7) facts.push('Offers 24/7 availability')
-  if (c.emergency_response_minutes) facts.push(`Emergency response: ${c.emergency_response_minutes} minutes`)
-  if (c.multi_site_coverage) {
-    facts.push(`Multi-site coverage${c.max_sites_supported ? `: up to ${c.max_sites_supported} locations` : ''}`)
-  }
-  if (c.offers_service_agreements && c.service_agreement_types.length > 0) {
-    facts.push(`Service agreements: ${c.service_agreement_types.join(', ')}`)
-  }
-  if (c.sla_summary) facts.push(`SLA: ${c.sla_summary}`)
-  if (c.license_number) facts.push(`License: ${c.license_number}`)
-  if (c.insurance_verified) facts.push('Insurance verified')
-  if (c.uses_gps_tracking) facts.push('GPS-tracked dispatch fleet')
-  if (c.dispatch_crm) facts.push(`Dispatch platform: ${c.dispatch_crm}`)
-
-  return facts.join('\n')
-}
-
-// Fetch the contractor's own website for richer context
-async function fetchWebsiteContent(url: string): Promise<string | null> {
-  try {
-    // Clean URL
-    let cleanUrl = url.trim()
-    if (!cleanUrl.startsWith('http')) cleanUrl = `https://${cleanUrl}`
-
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 8000)
-
-    const res = await fetch(cleanUrl, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'MyHVACTech-Bot/1.0' },
-      redirect: 'follow',
-    })
-    clearTimeout(timeout)
-
-    if (!res.ok) return null
-
-    const html = await res.text()
-
-    // Strip scripts, styles, nav, footer, then tags — extract body text
-    const stripped = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-      .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-      .replace(/<header[\s\S]*?<\/header>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&[a-z]+;/gi, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-
-    // Take first ~3000 chars to keep prompt reasonable
-    return stripped.slice(0, 3000) || null
-  } catch {
-    return null
-  }
-}
-
-
-// Build SEO keywords from contractor data
-function buildSeoKeywords(c: ContractorRow): string[] {
-  const kw: string[] = []
-
-  // Location keywords
-  kw.push(`commercial HVAC ${c.city}`)
-  kw.push(`HVAC contractor ${c.city} ${c.state}`)
-  if (c.google_formatted_address) {
-    // Extract metro if available
-    const parts = c.google_formatted_address.split(',').map((p: string) => p.trim())
-    if (parts.length >= 2) kw.push(`HVAC service ${parts[0]}`)
-  }
-
-  // System-specific keywords
-  const systemKwMap: Record<string, string[]> = {
-    rtu: ['rooftop unit repair', 'RTU maintenance', 'commercial rooftop HVAC'],
-    split_system: ['commercial split system', 'split system installation'],
-    chilled_water: ['chiller repair', 'chilled water system', 'commercial chiller service'],
-    vrf: ['VRF installation', 'VRF system service', 'variable refrigerant flow'],
-    boiler: ['commercial boiler repair', 'boiler maintenance'],
-    ahu: ['air handling unit service', 'AHU repair', 'air handler maintenance'],
-    ptac: ['PTAC unit service', 'PTAC installation'],
-    heat_pump: ['commercial heat pump', 'heat pump installation'],
-    geothermal: ['geothermal HVAC', 'geothermal system installation'],
-    ductless_mini_split: ['ductless mini-split', 'mini-split installation'],
-  }
-  for (const st of c.system_types || []) {
-    if (systemKwMap[st]) kw.push(...systemKwMap[st])
-  }
-
-  // Building type keywords
-  const buildingKwMap: Record<string, string[]> = {
-    office: ['office building HVAC', 'commercial office cooling'],
-    retail: ['retail HVAC service', 'store HVAC maintenance'],
-    industrial: ['industrial HVAC', 'warehouse cooling', 'factory HVAC'],
-    healthcare: ['hospital HVAC', 'medical facility HVAC', 'healthcare HVAC compliance'],
-    education: ['school HVAC', 'university HVAC service'],
-    hospitality: ['hotel HVAC', 'hospitality HVAC service'],
-    data_center: ['data center cooling', 'server room HVAC', 'precision cooling'],
-    multi_family: ['multi-family HVAC', 'apartment HVAC service'],
-    government: ['government building HVAC', 'municipal HVAC service'],
-    restaurant: ['restaurant HVAC', 'commercial kitchen ventilation'],
-    mixed_use: ['mixed-use building HVAC'],
-  }
-  for (const bt of c.building_types_served || []) {
-    if (buildingKwMap[bt]) kw.push(...buildingKwMap[bt])
-  }
-
-  // Service keywords
-  if (c.offers_24_7) kw.push('24/7 emergency HVAC', 'after-hours HVAC repair')
-  if (c.multi_site_coverage) kw.push('multi-site HVAC management', 'national HVAC coverage')
-  if (c.offers_service_agreements) kw.push('HVAC maintenance contract', 'preventive maintenance agreement')
-  if (c.tonnage_range_max && c.tonnage_range_max >= 100) kw.push('large tonnage HVAC', 'high-capacity commercial HVAC')
-
-  // Brand keywords
-  for (const brand of (c.brands_serviced || []).slice(0, 4)) {
-    kw.push(`${brand} commercial HVAC`, `${brand} authorized service`)
-  }
-
-  return [...new Set(kw)] // deduplicate
-}
-
-async function generateWithClaude(
-  factSheet: string,
-  companyName: string,
-  websiteText: string | null,
-  seoKeywords: string[] = []
-): Promise<{ full: string; short: string; meta: string }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY not configured')
-  }
-
-  const websiteSection = websiteText
-    ? `\n\nCONTENT FROM THEIR WEBSITE (use to extract real facts — services, history, differentiators, service areas, certifications):\n${websiteText}`
-    : ''
-
-  const systemPrompt = `You are an expert commercial HVAC copywriter who writes for MyHVAC.Tech — a directory built for property managers and facility managers who manage commercial buildings (NOT homeowners).
-
-Your writing must:
-- Sound like a knowledgeable industry journalist profiling the company, not ad copy
-- Be third-person, present tense
-- Target facility managers and commercial property managers as the reader
-- Weave in relevant SEO keywords naturally: commercial HVAC, the city/metro area, specific system types and building types the company handles
-- Emphasize what a facility manager actually cares about: response times, system expertise, track record, scale of projects, coverage area, certifications
-- Highlight concrete differentiators from residential directories (Angi, HomeAdvisor): commercial-only focus, tonnage capacity, multi-building coverage, SLAs, emergency response guarantees
-- MINIMUM 200 words, TARGET 250–350 words — this is CRITICAL. Do not write fewer than 200 words under any circumstances
-- If data is thin, expand on: the company's service area, typical commercial HVAC needs in that metro market, seasonal HVAC challenges for the region, what building types are common in the area, and why local commercial HVAC expertise matters for facility managers
-- Open with the single most compelling fact about the company (e.g. "Since 1974..." or "Covering 92 commercial projects across DFW...")
-- Use short paragraphs (2–3 sentences max)
-- Include the city/metro in the first sentence
-- NEVER use these phrases: "look no further", "one-stop shop", "committed to excellence", "dedicated team", "state-of-the-art", "second to none", "unparalleled", "when it comes to", "whether you need X or Y"
-- NEVER start with "Looking for" or "When it comes to"
-- Every sentence must carry new information — no filler
-- If the fact sheet is thin, focus on location, Google rating, and whatever specifics exist rather than inventing vague claims`
-
-  const userPrompt = `Write a compelling business description for this commercial HVAC contractor.
-
-CONTRACTOR FACTS (verified data from our database):
-${factSheet}
-${websiteSection}
-
-SEO KEYWORDS TO WEAVE IN NATURALLY (use 5–8 of these, don't force all):
-${seoKeywords.length > 0 ? seoKeywords.slice(0, 15).join(', ') : 'commercial HVAC, HVAC contractor, HVAC service'}
-
-Instructions:
-- Use facts from BOTH the database AND the website content (if provided)
-- Naturally incorporate 5–8 of the SEO keywords above into the description — they should read as organic text, not a keyword list
-- Do NOT copy sentences verbatim from their website — rewrite in your own voice
-- If website content reveals specifics not in the database (year founded, certifications, project types, client testimonials, specific services), incorporate those
-- If no website content is available and the database facts are thin, write a shorter but still useful description (~150 words) rather than padding with generic fluff
-
-Write ALL THREE outputs now. Format your response EXACTLY like this (including the separators):
-
-FULL_DESCRIPTION:
-[your 200-350 word description here — MINIMUM 200 words, count carefully]
-
-SHORT_DESCRIPTION:
-[exactly 150-160 characters for the contractor card — must include city and top differentiator. Count characters carefully.]
-
-META_DESCRIPTION:
-[exactly 150-160 characters for SEO meta tag — must include company name, city, and a call-to-action like "verified reviews" or "free quotes". Count characters carefully.]`
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [
-        { role: 'user', content: userPrompt },
-      ],
-    }),
-  })
-
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}))
-    throw new Error(`Claude API error: ${response.status} — ${JSON.stringify(errData)}`)
-  }
-
-  const data = await response.json()
-  const text = data.content?.[0]?.text?.trim()
-
-  if (!text) {
-    throw new Error('Claude returned empty response')
-  }
-
-  // Parse out all three descriptions
-  const fullMatch = text.match(/FULL_DESCRIPTION:\s*\n([\s\S]*?)(?:\nSHORT_DESCRIPTION:|$)/)
-  const shortMatch = text.match(/SHORT_DESCRIPTION:\s*\n([\s\S]*?)(?:\nMETA_DESCRIPTION:|$)/)
-  const metaMatch = text.match(/META_DESCRIPTION:\s*\n([\s\S]*?)$/)
-
-  const fullDesc = fullMatch ? fullMatch[1].trim() : text
-  const shortDesc = shortMatch ? shortMatch[1].trim().slice(0, 160) : ''
-  const metaDesc = metaMatch ? metaMatch[1].trim().slice(0, 160) : shortDesc
-
-  return { full: fullDesc, short: shortDesc, meta: metaDesc }
-}
-
-// Fallback template-based generation (no AI API needed)
-function generateFallback(c: ContractorRow): string {
-  const parts: string[] = []
-
-  const exp = c.years_commercial_experience
-    ? `With ${c.years_commercial_experience} years of commercial HVAC experience, `
-    : c.year_established
-      ? `Established in ${c.year_established}, `
-      : ''
-
-  parts.push(
-    `${exp}${c.company_name} is a commercial HVAC contractor serving ${c.city}, ${c.state} and the surrounding area${c.service_radius_miles ? ` within a ${c.service_radius_miles}-mile radius` : ''}.`
-  )
-
-  if (c.google_rating && c.google_review_count) {
-    parts.push(`Rated ${c.google_rating}/5 on Google with ${c.google_review_count} reviews.`)
-  }
-
-  if (c.system_types.length > 0) {
-    const labels = c.system_types.map((st) => SYSTEM_LABELS[st] || st).join(', ')
-    parts.push(`Specializes in ${labels}.`)
-  }
-
-  if (c.building_types_served.length > 0) {
-    const labels = c.building_types_served.map((bt) => BUILDING_LABELS[bt] || bt).join(', ')
-    parts.push(`Serves ${labels}.`)
-  }
-
-  if (c.offers_24_7 || c.emergency_response_minutes) {
-    const avail: string[] = []
-    if (c.offers_24_7) avail.push('24/7 availability')
-    if (c.emergency_response_minutes) avail.push(`${c.emergency_response_minutes}-minute emergency response`)
-    parts.push(`Offers ${avail.join(' with ')}.`)
-  }
-
-  return parts.join(' ')
-}
-
-// Build a ContractorRow from inline form data (for Add page where no DB record exists yet)
+// Build a ContractorRow from inline form data (Add page — no DB record yet)
 function formDataToContractorRow(form: Record<string, unknown>): ContractorRow {
   return {
     company_name: (form.company_name as string) || 'Unknown',
@@ -421,9 +56,8 @@ function formDataToContractorRow(form: Record<string, unknown>): ContractorRow {
   }
 }
 
-// POST — Generate an "About Us" description for a contractor
-// Body: { contractor_id: string, save?: boolean }
-//   OR: { form_data: {...}, save?: false }  (for unsaved Add form)
+// POST — Generate a National LLM-SEO listing (About body + FAQ) for a contractor.
+// Body: { contractor_id: string, save?: boolean }  OR  { form_data: {...}, save?: false }
 export async function POST(request: NextRequest) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -437,68 +71,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'contractor_id or form_data is required' }, { status: 400 })
     }
 
-    let c: ContractorRow
     const db = createAdminClient()
+    let c: ContractorRow
 
     if (contractor_id) {
-      // Existing contractor — fetch from DB
       const { data: contractor, error } = await db
         .from('contractors')
         .select('*')
         .eq('trade', TRADE_KEY)
         .eq('id', contractor_id)
         .single()
-
       if (error || !contractor) {
         return NextResponse.json({ error: 'Contractor not found' }, { status: 404 })
       }
       c = contractor as unknown as ContractorRow
     } else {
-      // Inline form data — build a ContractorRow from it
       c = formDataToContractorRow(form_data)
     }
 
-    const factSheet = buildFactSheet(c)
-
-    // Try to fetch their website for richer context
     const websiteUrl = c.google_website || (form_data?.website as string) || null
-    let websiteText: string | null = null
-    if (websiteUrl) {
-      websiteText = await fetchWebsiteContent(websiteUrl)
-    }
-
-    // Build SEO keywords for this contractor
-    const seoKeywords = buildSeoKeywords(c)
+    const websiteText = websiteUrl ? await fetchWebsiteContent(websiteUrl) : null
 
     let description: string
-    let shortDescription: string = ''
-    let metaDescription: string = ''
+    let shortDescription = ''
+    let metaDescription = ''
+    let qa: FaqItem[] = []
+    let faq: FaqItem[] = []
     let source: 'claude' | 'template'
 
-    // Try Claude first, fall back to template
     try {
-      const aiResult = await generateWithClaude(factSheet, c.company_name, websiteText, seoKeywords)
-      description = aiResult.full
-      shortDescription = aiResult.short
-      metaDescription = aiResult.meta
-
-      // Check minimum length — retry once if too short
-      const wordCount = description.split(/\s+/).length
-      if (wordCount < 150) {
-        console.log(`First attempt too short (${wordCount} words), retrying with stronger prompt...`)
-        const retryResult = await generateWithClaude(
-          factSheet + '\n\nCRITICAL: Your previous attempt was only ' + wordCount + ' words. You MUST write at least 200 words. Expand on the local market, seasonal HVAC needs, building types in the area, and what makes this contractor relevant to facility managers.',
-          c.company_name,
-          websiteText,
-          seoKeywords
-        )
-        if (retryResult.full.split(/\s+/).length > wordCount) {
-          description = retryResult.full
-          shortDescription = retryResult.short
-          metaDescription = retryResult.meta
-        }
-      }
-
+      const gen = await generateListingContent(c, websiteText)
+      description = gen.description
+      shortDescription = gen.short
+      metaDescription = gen.meta
+      qa = gen.qa
+      faq = gen.faq
       source = 'claude'
     } catch (aiErr) {
       console.error('Claude generation failed, using template fallback:', aiErr)
@@ -506,27 +113,26 @@ export async function POST(request: NextRequest) {
       source = 'template'
     }
 
-    // Ensure short_description fills 150+ chars
+    // Backfill short/meta if the model left them thin.
     if (!shortDescription || shortDescription.length < 100) {
       const rating = c.google_rating ? ` ${c.google_rating}★ rated.` : ''
       shortDescription = `Commercial HVAC contractor in ${c.city}, ${c.state}.${rating} Verified reviews, free quotes.`.slice(0, 160)
     }
-    // Ensure meta_description fills 150+ chars
     if (!metaDescription || metaDescription.length < 100) {
       metaDescription = `${c.company_name} — commercial HVAC contractor in ${c.city}, ${c.state}. Read verified reviews, compare services, and request free quotes.`.slice(0, 160)
     }
 
-    // Optionally save (only works with contractor_id)
     if (save && contractor_id) {
       const { error: updateError } = await db
         .from('contractors')
         .update({
           description,
-          ...(shortDescription ? { short_description: shortDescription } : {}),
-          ...(metaDescription ? { meta_description: metaDescription } : {}),
+          short_description: shortDescription,
+          meta_description: metaDescription,
+          ...(qa.length > 0 ? { qa_snippets: qa } : {}),
+          ...(faq.length > 0 ? { faq } : {}),
         })
         .eq('id', contractor_id)
-
       if (updateError) {
         return NextResponse.json({ error: updateError.message }, { status: 500 })
       }
@@ -537,11 +143,11 @@ export async function POST(request: NextRequest) {
       description,
       short_description: shortDescription,
       meta_description: metaDescription,
+      qa_snippets: qa,
+      faq,
       source,
       saved: !!(save && contractor_id),
       word_count: description.split(/\s+/).length,
-      short_description_length: shortDescription.length,
-      meta_description_length: metaDescription.length,
       website_fetched: !!websiteText,
     })
   } catch (err) {

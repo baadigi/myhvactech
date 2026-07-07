@@ -407,16 +407,52 @@ export default function ContractorProfileTabs({ contractor }: Props) {
             </section>
           )}
 
-          {/* Description */}
-          {(Boolean(contractor.description) || Boolean(contractor.google_editorial_summary)) && (
+          {/* Quick Answers — AI-citable Q&A snippets, above the About body */}
+          {contractor.qa_snippets && contractor.qa_snippets.length > 0 && (
+            <section>
+              <h2 className="text-base font-semibold text-neutral-900 mb-3 flex items-center gap-2">
+                <Zap size={16} className="text-primary-500" aria-hidden="true" />
+                Quick Answers
+              </h2>
+              <div className="space-y-3">
+                {contractor.qa_snippets.map((item, i) => (
+                  <div key={i} className="rounded-lg border border-primary-100 bg-primary-50/40 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-neutral-900 mb-1">{item.question}</h3>
+                    <p className="text-sm text-neutral-700 leading-relaxed">{item.answer}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Description — draft (staged/preview) takes precedence over live description */}
+          {(Boolean(contractor.description_draft) || Boolean(contractor.description) || Boolean(contractor.google_editorial_summary)) && (
             <section>
               <h2 className="text-base font-semibold text-neutral-900 mb-3">About</h2>
               <div className="prose prose-sm max-w-none text-neutral-700 leading-relaxed whitespace-pre-line">
-                {contractor.description || contractor.google_editorial_summary || ''}
+                {contractor.description_draft || contractor.description || contractor.google_editorial_summary || ''}
               </div>
-              {!contractor.description && Boolean(contractor.google_editorial_summary) && (
+              {!contractor.description_draft && !contractor.description && Boolean(contractor.google_editorial_summary) && (
                 <p className="text-xs text-neutral-400 mt-2">Source: Google Business Profile</p>
               )}
+            </section>
+          )}
+
+          {/* FAQ */}
+          {contractor.faq && contractor.faq.length > 0 && (
+            <section>
+              <h2 className="text-base font-semibold text-neutral-900 mb-3 flex items-center gap-2">
+                <ClipboardList size={16} className="text-neutral-400" aria-hidden="true" />
+                Frequently Asked Questions
+              </h2>
+              <div className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
+                {contractor.faq.map((item, i) => (
+                  <div key={i} className="px-4 py-3">
+                    <h3 className="text-sm font-semibold text-neutral-900 mb-1">{item.question}</h3>
+                    <p className="text-sm text-neutral-700 leading-relaxed">{item.answer}</p>
+                  </div>
+                ))}
+              </div>
             </section>
           )}
 

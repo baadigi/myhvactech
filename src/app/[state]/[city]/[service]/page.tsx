@@ -119,6 +119,30 @@ function getFAQ(serviceName: string, city: string, stateAbbr: string) {
   ]
 }
 
+// ─── Quick Answers (LLM/AEO snippets — answer-first, above the fold) ──────────
+// Templated by service + city so every pillar page reads uniquely per location and
+// mirrors the listing format (Quick Answers → body → FAQ). Keyword-aligned to real
+// commercial-HVAC search demand.
+function getQuickAnswers(serviceName: string, city: string, stateAbbr: string, count: number) {
+  const svc = serviceName.toLowerCase()
+  return [
+    {
+      q: `Who offers ${svc} in ${city}, ${stateAbbr}?`,
+      a: count > 0
+        ? `My HVAC Tech lists ${count} commercial HVAC ${count === 1 ? 'contractor' : 'contractors'} providing ${svc} in ${city}, ${stateAbbr}. Each profile shows verified Google reviews, service capabilities, and a free-quote request so facility managers can compare options in one place.`
+        : `Facility managers can find commercial HVAC contractors offering ${svc} in and around ${city}, ${stateAbbr} on My HVAC Tech, with verified Google reviews and free-quote requests on every profile.`,
+    },
+    {
+      q: `How much does ${svc} cost in ${city}?`,
+      a: `${serviceName} pricing in ${city} depends on system type and capacity, building size, and scope of work — there is no flat rate for commercial systems. The fastest way to budget is to request itemized written quotes from two or three ${city} contractors and compare them side by side.`,
+    },
+    {
+      q: `How do I choose a ${svc} contractor in ${city}?`,
+      a: `Choose a ${city}-area contractor with documented commercial (not just residential) experience, a valid state license and insurance, and strong verified reviews from similar properties. Confirm their warranty on parts and labor and their typical emergency response time before signing a service agreement.`,
+    },
+  ]
+}
+
 // ─── Static Params ────────────────────────────────────────────────────────────
 
 export async function generateStaticParams() {
@@ -163,6 +187,7 @@ export default async function CityServicePage({ params }: Props) {
 
   const contractors = await getContractorsForCityService(cityName, stateObj.abbr)
   const whatToExpect = getWhatToExpect(service)
+  const quickAnswers = getQuickAnswers(serviceObj.name, cityName, stateObj.abbr, contractors.length)
   const faq = getFAQ(serviceObj.name, cityName, stateObj.abbr)
   const serviceDescription = SERVICE_DESCRIPTIONS[service] || `${serviceObj.name} is an essential commercial building service. Licensed contractors provide expert diagnosis, repair, installation, and maintenance.`
 
@@ -177,7 +202,7 @@ export default async function CityServicePage({ params }: Props) {
         description={serviceDescription}
         slug={service}
       />
-      <FAQSchema items={faq.map(f => ({ question: f.q, answer: f.a }))} />
+      <FAQSchema items={[...quickAnswers, ...faq].map(f => ({ question: f.q, answer: f.a }))} />
       {contractors.length > 0 && (
         <ItemListSchema items={contractors.map((c) => ({
           name: c.company_name,
@@ -222,6 +247,19 @@ export default async function CityServicePage({ params }: Props) {
       </section>
 
       <div className="max-w-5xl mx-auto px-4 py-10">
+
+        {/* ── Quick Answers (AEO) ──────────────────────────────────────── */}
+        <section className="mb-12">
+          <h2 className="text-xl font-semibold text-neutral-900 mb-5">Quick Answers</h2>
+          <div className="space-y-3">
+            {quickAnswers.map((item, i) => (
+              <div key={i} className="rounded-lg border border-primary-100 bg-primary-50/40 px-5 py-4">
+                <h3 className="text-base font-semibold text-neutral-900 mb-1.5">{item.q}</h3>
+                <p className="text-sm text-neutral-700 leading-relaxed">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* ── Contractor Listings ──────────────────────────────────────── */}
         <section className="mb-12">

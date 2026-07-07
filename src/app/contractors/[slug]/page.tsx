@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/Button'
 import RatingStars from '@/components/RatingStars'
 import ContractorCard from '@/components/ContractorCard'
 import { formatPhoneNumber, externalUrl } from '@/lib/utils'
-import { BreadcrumbSchema } from '@/components/SchemaOrg'
+import { BreadcrumbSchema, FAQSchema } from '@/components/SchemaOrg'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TRADE_KEY } from '@/lib/trade-scope'
 import { clampTitle, clampDescription } from '@/lib/seo'
@@ -269,6 +269,13 @@ export default async function ContractorProfilePage({ params }: Props) {
         { name: contractor.city, url: `${SITE_URL}/${stateSlug}/${citySlug}` },
         { name: contractor.company_name, url: `${SITE_URL}/contractors/${contractor.slug}` },
       ]} />
+      {(() => {
+        const schemaItems = [
+          ...(Array.isArray(contractor.qa_snippets) ? contractor.qa_snippets : []),
+          ...(Array.isArray(contractor.faq) ? contractor.faq : []),
+        ]
+        return schemaItems.length > 0 ? <FAQSchema items={schemaItems} /> : null
+      })()}
 
       <main className="min-h-screen bg-neutral-50">
 
