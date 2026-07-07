@@ -60,6 +60,25 @@ async function getContractorsForCityService(city: string, stateAbbr: string): Pr
   return (data ?? []) as unknown as Contractor[]
 }
 
+// Nearby cities in the same state with enough contractors to be worth linking (>=3,
+// so we don't point at thin/noindexed pages). Used for cross-city cluster links.
+async function getNearbyCities(city: string, stateAbbr: string, limit = 8): Promise<string[]> {
+  const db = createAdminClient()
+  const { data } = await db
+    .from('contractors')
+    .select('city')
+    .eq('trade', TRADE_KEY)
+    .ilike('state', stateAbbr)
+    .neq('subscription_status', 'cancelled')
+  if (!data) return []
+  const counts = new Map<string, number>()
+  for (const r of data) {
+    const c = (r as { city: string | null }).city
+    if (c && c.toLowerCase() !== city.toLowerCase()) counts.set(c, (counts.get(c) || 0) + 1)
+  }
+  return [...counts.entries()].filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([c]) => c)
+}
+
 // ─── Service Content ──────────────────────────────────────────────────────────
 
 const SERVICE_DESCRIPTIONS: Record<string, string> = {
@@ -86,6 +105,11 @@ const SERVICE_DESCRIPTIONS: Record<string, string> = {
 }
 
 const WHAT_TO_EXPECT: Record<string, string[]> = {
+  'commercial-hvac-repair': ['Initial diagnosis across heating and cooling equipment with a written estimate', 'Parts sourcing — often same-day for common components', 'Repair with warranty on labor and parts', 'System test and performance verification', 'Documentation for maintenance and warranty records'],
+  'commercial-hvac-service': ['Scheduling that works around building operating hours', 'Full inspection of heating and cooling equipment', 'Diagnosis and repair, or a quote for larger work', 'Filter, refrigerant, and electrical checks', 'Service report with any recommended follow-ups'],
+  'commercial-hvac-installation': ['Site survey and load calculation sized to the building', 'Equipment selection and a detailed written proposal', 'Removal of old equipment where applicable', 'Code-compliant installation and commissioning', 'Startup verification and warranty registration'],
+  'commercial-hvac-maintenance': ['Scheduled preventive visits (often quarterly or biannual)', 'Filter changes, coil cleaning, and refrigerant checks', 'Electrical inspection and controls calibration', 'Priority scheduling for members during peak season', 'Documented reports supporting warranty and compliance'],
+  'commercial-hvac-replacement': ['Assessment of whether repair or replacement is more cost-effective', 'Load recalculation and high-efficiency equipment options', 'Removal and disposal of the old system', 'Installation, commissioning, and startup testing', 'Rebate/financing guidance and warranty registration'],
   'commercial-ac-repair': ['Initial diagnosis and written estimate', 'Parts sourcing (usually same-day for common components)', 'Repair with warranty on labor and parts', 'System test and performance verification', 'Documentation for maintenance records'],
   'rooftop-unit-service': ['Safety inspection and general condition assessment', 'Filter replacement and coil cleaning', 'Refrigerant pressure check and top-off if needed', 'Electrical connection inspection and tightening', 'Lubrication of moving parts', 'Performance report with recommendations'],
   'emergency-hvac-service': ['Phone triage to assess urgency and dispatch appropriate crew', 'Arrival typically within 1–4 hours of initial call', 'Diagnosis and temporary fix to restore function if full repair requires parts', 'Upfront emergency service pricing (higher than standard rates)', 'Follow-up for permanent repair if temp fix was applied'],
@@ -191,6 +215,7 @@ export default async function CityServicePage({ params }: Props) {
   if (!stateObj || !serviceObj) notFound()
 
   const contractors = await getContractorsForCityService(cityName, stateObj.abbr)
+  const nearbyCities = await getNearbyCities(cityName, stateObj.abbr)
   const whatToExpect = getWhatToExpect(service)
   const quickAnswers = getQuickAnswers(serviceObj.name, cityName, stateObj.abbr, contractors.length)
   const faq = getFAQ(serviceObj.name, cityName, stateObj.abbr)
@@ -353,6 +378,26 @@ export default async function CityServicePage({ params }: Props) {
                 >
                   <ChevronRight size={13} className="text-neutral-300 group-hover:text-primary-500 shrink-0" aria-hidden="true" />
                   {svc.name} in {cityName}
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Nearby cities (same service) ─────────────────────────────── */}
+        {nearbyCities.length > 0 && (
+          <section className="mb-12">
+            <h2 className="text-xl font-semibold text-neutral-900 mb-5">
+              {serviceObj.name} in Nearby Cities
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {nearbyCities.map((nc) => (
+                <Link
+                  key={nc}
+                  href={`/${state}/${nc.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}/${service}`}
+                  className="inline-flex items-center rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm px-3 py-2 hover:border-primary-300 hover:text-primary-700 transition-colors"
+                >
+                  {serviceObj.name} in {nc}
                 </Link>
               ))}
             </div>

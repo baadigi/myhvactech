@@ -258,6 +258,24 @@ export default async function ContractorProfilePage({ params }: Props) {
   const stateSlug = stateName.toLowerCase().replace(/\s+/g, '-')
   const citySlug = contractor.city.toLowerCase().replace(/\s+/g, '-')
 
+  // Cluster links: head-term service pillars + ones matched to this contractor's systems.
+  const SYSTEM_SERVICE_MAP: Record<string, string> = {
+    rtu: 'rooftop-unit-service',
+    chilled_water: 'chiller-repair-maintenance',
+    boiler: 'boiler-service',
+    vrf: 'vrf-vrv-systems',
+  }
+  const pillarSlugs = [
+    ...new Set([
+      'commercial-hvac-repair', 'commercial-hvac-service', 'commercial-hvac-installation',
+      'commercial-hvac-maintenance', 'emergency-hvac-service',
+      ...(contractor.system_types ?? []).map((st: string) => SYSTEM_SERVICE_MAP[st]).filter(Boolean),
+    ]),
+  ].slice(0, 8)
+  const pillarLinks = pillarSlugs
+    .map((slug) => HVAC_SERVICES.find((s) => s.slug === slug))
+    .filter((s): s is (typeof HVAC_SERVICES)[number] => Boolean(s))
+
   return (
     <>
       <script
@@ -727,17 +745,15 @@ export default async function ContractorProfilePage({ params }: Props) {
               >
                 All Commercial HVAC Contractors in {contractor.city}, {stateAbbr}
               </Link>
-              {HVAC_SERVICES
-                .filter((s) => ['commercial-hvac-repair', 'commercial-hvac-service', 'commercial-hvac-installation', 'commercial-hvac-maintenance', 'emergency-hvac-service', 'commercial-hvac-replacement'].includes(s.slug))
-                .map((s) => (
-                  <Link
-                    key={s.slug}
-                    href={`/${stateSlug}/${citySlug}/${s.slug}`}
-                    className="inline-flex items-center rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm px-3 py-2 hover:border-primary-300 hover:text-primary-700 transition-colors"
-                  >
-                    {s.name} in {contractor.city}
-                  </Link>
-                ))}
+              {pillarLinks.map((s) => (
+                <Link
+                  key={s.slug}
+                  href={`/${stateSlug}/${citySlug}/${s.slug}`}
+                  className="inline-flex items-center rounded-lg border border-neutral-200 bg-white text-neutral-700 text-sm px-3 py-2 hover:border-primary-300 hover:text-primary-700 transition-colors"
+                >
+                  {s.name} in {contractor.city}
+                </Link>
+              ))}
             </div>
           </div>
 
