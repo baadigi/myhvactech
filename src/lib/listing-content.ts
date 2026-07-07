@@ -150,6 +150,10 @@ export async function fetchWebsiteContent(url: string): Promise<string | null> {
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&[a-z]+;/gi, ' ')
+      // Strip lone UTF-16 surrogates — some sites emit broken chars that make the
+      // Anthropic request body invalid JSON ("no low surrogate in string").
+      .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '')
+      .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
       .replace(/\s+/g, ' ')
       .trim()
     return stripped.slice(0, 3000) || null
@@ -352,6 +356,12 @@ export async function generateListingContent(
   const apiKey = opts.apiKey || process.env.ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
+  // Strip lone UTF-16 surrogates from the whole prompt — review snippets sliced at 300
+  // chars (or broken site chars) can leave an unpaired surrogate that makes the Anthropic
+  // request body invalid JSON ("no low surrogate in string").
+  const stripSurrogates = (s: string) =>
+    s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '').replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+
   const factSheet = buildFactSheet(c)
   const qaQuestions = selectQaQuestions(c)
   const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -365,7 +375,7 @@ export async function generateListingContent(
       model: opts.model || 'claude-sonnet-4-6',
       max_tokens: 2000,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: buildUserPrompt(factSheet, websiteText, qaQuestions) }],
+      messages: [{ role: 'user', content: stripSurrogates(buildUserPrompt(factSheet, websiteText, qaQuestions)) }],
     }),
   })
   if (!response.ok) {
