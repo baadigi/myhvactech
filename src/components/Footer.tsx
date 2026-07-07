@@ -125,6 +125,9 @@ export default function Footer() {
           <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-3 text-xs text-neutral-500">
             <p>&copy; {currentYear} My HVAC Tech. All rights reserved.</p>
             <p>3839 McKinney Avenue, Suite 155, Dallas, TX 75204</p>
+            <a href="tel:+18668647460" className="hover:text-neutral-300 transition-colors">
+              +1 866-864-7460
+            </a>
           </div>
           <div className="flex items-center gap-4">
             <a
