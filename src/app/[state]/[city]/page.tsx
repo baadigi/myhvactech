@@ -119,10 +119,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const stateObj = getStateObj(state)
   const stateDisplay = stateObj?.abbr || state.toUpperCase()
 
+  // Thin-content gate: noindex city pages with fewer than 3 contractors.
+  const contractors = stateObj
+    ? await getContractorsForCity(cityName, stateObj.abbr, stateObj.name)
+    : []
+  const shouldIndex = contractors.length >= 3
+
   return {
     title: `Best Commercial HVAC Contractors in ${cityName}, ${stateDisplay}`,
     description: `Find and compare the best commercial HVAC contractors in ${cityName}, ${stateDisplay}. Verified reviews, licensed professionals, free quotes for your commercial property.`,
     alternates: { canonical: `${SITE_URL}/${state}/${city}` },
+    ...(!shouldIndex && { robots: { index: false, follow: true } }),
     openGraph: {
       title: `Commercial HVAC Contractors in ${cityName}, ${stateDisplay}`,
       description: `Top-rated commercial HVAC companies in ${cityName}. Read reviews and get free quotes.`,

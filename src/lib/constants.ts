@@ -112,6 +112,12 @@ export const HVAC_BRANDS = [
 // ─── HVAC Services (unchanged from v1) ──────────────────────────────────────
 
 export const HVAC_SERVICES = [
+  // Exact-match head terms (highest commercial-HVAC search volume — Ahrefs).
+  { name: 'Commercial HVAC Repair', slug: 'commercial-hvac-repair', category: 'Repair' },
+  { name: 'Commercial HVAC Service', slug: 'commercial-hvac-service', category: 'Maintenance' },
+  { name: 'Commercial HVAC Installation', slug: 'commercial-hvac-installation', category: 'Installation' },
+  { name: 'Commercial HVAC Maintenance', slug: 'commercial-hvac-maintenance', category: 'Maintenance' },
+  { name: 'Commercial HVAC Replacement', slug: 'commercial-hvac-replacement', category: 'Installation' },
   { name: 'Commercial AC Repair', slug: 'commercial-ac-repair', category: 'Repair' },
   { name: 'Commercial AC Installation', slug: 'commercial-ac-installation', category: 'Installation' },
   { name: 'Commercial Heating Repair', slug: 'commercial-heating-repair', category: 'Repair' },
