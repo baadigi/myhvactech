@@ -12,6 +12,7 @@ import { SITE_NAME } from '@/lib/constants'
 
 const DIRECTORY_PATH = 'contractors'
 const DIRECTORY_NOUN_PLURAL = 'contractors'
+const TRADE_NOUN = 'HVAC'
 import { trackScopeAgent } from '@/lib/analytics'
 
 interface Msg {
@@ -43,6 +44,24 @@ interface Intake {
 
 const GREETING = `Hi! I can help you find the right commercial ${DIRECTORY_NOUN_PLURAL} for your job. Tell me what's going on — what work do you need, and where?`
 
+interface Geo {
+  city: string | null
+  region: string | null
+  weather: { tempF: number; condition: string | null } | null
+}
+
+// Sierra-style opener — only ever built from real /api/geo data.
+function personalGreeting(geo: Geo): string {
+  const where = `${geo.city}${geo.region ? `, ${geo.region}` : ''}`
+  const wx = geo.weather
+    ? ` — looks like it's ${geo.weather.tempF}°${geo.weather.condition ? ` and ${geo.weather.condition}` : ''} out there`
+    : ''
+  return `Hey! I see you're visiting from ${where}${wx}. I help property and facility managers find the right commercial ${TRADE_NOUN} ${DIRECTORY_NOUN_PLURAL} fast. What can I help you with today?`
+}
+
+const AUTO_OPEN_MS = 15_000
+const AUTO_KEY = 'scope_agent_auto_shown'
+
 export default function ScopeAgent() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([{ role: 'assistant', content: GREETING }])
@@ -54,8 +73,45 @@ export default function ScopeAgent() {
   const [lead, setLead] = useState({ name: '', email: '', phone: '' })
   const [leadBusy, setLeadBusy] = useState(false)
   const [leadError, setLeadError] = useState('')
+  const [teaser, setTeaser] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const openRef = useRef(false)
+  openRef.current = open
+
+  // Personalize the greeting once geo arrives (only while untouched).
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/geo')
+      .then((r) => r.json())
+      .then((geo: Geo) => {
+        if (cancelled || !geo?.city) return
+        setMessages((prev) =>
+          prev.length === 1 && prev[0].content === GREETING
+            ? [{ role: 'assistant', content: personalGreeting(geo) }]
+            : prev
+        )
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  // Proactive open after 15s — once per session; teaser bubble on mobile
+  // (auto-covering the screen on a phone loses more leads than it wins).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (openRef.current || sessionStorage.getItem(AUTO_KEY)) return
+      sessionStorage.setItem(AUTO_KEY, '1')
+      if (window.innerWidth >= 640) {
+        setOpen(true)
+        trackScopeAgent('auto_open')
+      } else {
+        setTeaser(true)
+        trackScopeAgent('auto_teaser')
+      }
+    }, AUTO_OPEN_MS)
+    return () => clearTimeout(t)
+  }, [])
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
@@ -66,6 +122,7 @@ export default function ScopeAgent() {
   function toggleOpen() {
     if (!open) trackScopeAgent('open')
     else abortRef.current?.abort() // closing mid-stream — stop the server turn
+    setTeaser(false)
     setOpen(!open)
   }
 
@@ -182,6 +239,22 @@ export default function ScopeAgent() {
 
   return (
     <>
+      {/* Mobile teaser bubble */}
+      {teaser && !open && (
+        <div className="fixed bottom-20 right-5 z-50 max-w-[280px] rounded-2xl rounded-br-sm border border-neutral-200 bg-white shadow-xl p-3">
+          <button
+            onClick={() => setTeaser(false)}
+            aria-label="Dismiss"
+            className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-neutral-200 text-neutral-600 text-xs leading-none"
+          >
+            ×
+          </button>
+          <button onClick={toggleOpen} className="text-left text-sm text-neutral-800">
+            {messages[0].content}
+          </button>
+        </div>
+      )}
+
       {/* Launcher */}
       <button
         onClick={toggleOpen}

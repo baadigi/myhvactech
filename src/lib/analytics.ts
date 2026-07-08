@@ -16,7 +16,7 @@ export function trackEvent(
  * scope_agent_shortlist_shown, scope_agent_email_submitted, scope_agent_lead_created.
  */
 export function trackScopeAgent(
-  step: 'open' | 'message_sent' | 'shortlist_shown' | 'email_submitted' | 'lead_created',
+  step: 'open' | 'auto_open' | 'auto_teaser' | 'message_sent' | 'shortlist_shown' | 'email_submitted' | 'lead_created',
   params?: Record<string, string | number | boolean | undefined>
 ) {
   trackEvent(`scope_agent_${step}`, params)
