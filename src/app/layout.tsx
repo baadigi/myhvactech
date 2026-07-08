@@ -5,6 +5,7 @@ import './globals.css'
 import { SITE_NAME, SITE_DESCRIPTION, SITE_URL } from '@/lib/constants'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import ScopeAgent from '@/components/ScopeAgent'
 import { WebsiteSchema, OrganizationSchema } from '@/components/SchemaOrg'
 
 const GA_ID = 'G-0QJYC9011B'
@@ -128,6 +129,7 @@ export default function RootLayout({
           {children}
         </main>
         <Footer />
+        <ScopeAgent />
       </body>
     </html>
   )

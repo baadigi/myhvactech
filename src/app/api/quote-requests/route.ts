@@ -1,13 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { withTrade } from '@/lib/trade-scope'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { withTrade, TRADE_KEY } from '@/lib/trade-scope'
 import { sendNotification } from '@/lib/email'
 import { pushLeadToGHL } from '@/lib/ghl'
+
+const titleCase = (t: string) => t.replace(/\b\w/g, (c) => c.toUpperCase())
+
+// Contractor-facing emails interpolate buyer-typed text — escape it.
+const esc = (v: unknown) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
+
+// Scope Agent leads carry the AI-intake session in `scope_agent`; they reuse
+// this pipeline and additionally persist a scope_requests row + notify the
+// shortlisted contractors that have an email on file.
+interface ScopeAgentPayload {
+  scope_summary: string | null
+  transcript: { role: string; content: string }[]
+  shortlist: { id: string; company_name: string }[]
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface QuoteRequestPayload {
-  building_type: string
+  building_type: string | null
   property_sqft: number | null
   num_buildings: number
   num_units_rtus: number | null
@@ -25,6 +41,7 @@ interface QuoteRequestPayload {
   property_state: string | null
   property_zip: string | null
   source?: string
+  scope_agent?: ScopeAgentPayload
 }
 
 // ─── Valid enum values (mirrors types.ts) ────────────────────────────────────
@@ -70,11 +87,17 @@ export async function POST(request: NextRequest) {
   // ── Validate required fields ──────────────────────────────────────────────
 
   const validationErrors: string[] = []
+  const isScopeAgent = body.source === 'scope_agent'
 
-  if (!body.building_type || typeof body.building_type !== 'string') {
-    validationErrors.push('building_type is required')
-  } else if (!(VALID_BUILDING_TYPES as readonly string[]).includes(body.building_type)) {
-    validationErrors.push(`building_type must be one of: ${VALID_BUILDING_TYPES.join(', ')}`)
+  // Scope Agent chats may end without a building type — optional there.
+  if (!isScopeAgent) {
+    if (!body.building_type || typeof body.building_type !== 'string') {
+      validationErrors.push('building_type is required')
+    } else if (!(VALID_BUILDING_TYPES as readonly string[]).includes(body.building_type)) {
+      validationErrors.push(`building_type must be one of: ${VALID_BUILDING_TYPES.join(', ')}`)
+    }
+  } else if (body.building_type && !(VALID_BUILDING_TYPES as readonly string[]).includes(body.building_type)) {
+    body.building_type = null // agent guessed outside the taxonomy — drop, don't reject the lead
   }
 
   if (!body.service_type || typeof body.service_type !== 'string') {
@@ -111,12 +134,12 @@ export async function POST(request: NextRequest) {
     requestor_phone: body.requestor_phone ?? null,
     requestor_title: body.requestor_title ?? null,
     company_name: body.company_name ?? null,
-    building_type: body.building_type,
+    building_type: body.building_type ?? null,
     property_sqft: body.property_sqft ?? null,
     num_buildings: body.num_buildings ?? 1,
     num_units_rtus: body.num_units_rtus ?? null,
     system_types: Array.isArray(body.system_types) ? body.system_types : [],
-    current_issues: body.current_issues ?? null,
+    current_issues: body.current_issues ?? (isScopeAgent ? body.scope_agent?.scope_summary ?? null : null),
     service_type: body.service_type,
     budget_band: body.budget_band ?? null,
     timing: body.timing ?? null,
@@ -129,8 +152,11 @@ export async function POST(request: NextRequest) {
 
   // ── Persist to Supabase ─────────────────────────────────────────────────
 
+  // Service role: anon has INSERT but no SELECT on quote_requests, so
+  // .insert().select() was rejected by RLS and the whole insert rolled back.
   const supabase = await createClient()
-  const { data: inserted, error: dbError } = await supabase
+  const admin = createAdminClient()
+  const { data: inserted, error: dbError } = await admin
     .from('quote_requests')
     .insert(withTrade(record))
     .select('id')
@@ -212,6 +238,10 @@ export async function POST(request: NextRequest) {
     ].filter(Boolean).join('\n'),
   })
 
+  if (isScopeAgent) {
+    await handleScopeAgentExtras(supabase, body, record, inserted?.id ?? null)
+  }
+
   return NextResponse.json(
     {
       success: true,
@@ -229,4 +259,70 @@ export async function GET() {
     { message: 'Quote requests endpoint. Use POST to submit a quote request.' },
     { status: 200 }
   )
+}
+
+// ─── Scope Agent extras ───────────────────────────────────────────────────────
+
+async function handleScopeAgentExtras(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  body: QuoteRequestPayload,
+  record: { requestor_name: string; requestor_email: string; requestor_phone: string | null; service_type: string; property_city: string | null; property_state: string | null },
+  quoteRequestId: string | null
+) {
+  const sa = body.scope_agent
+  const shortlistIds = (sa?.shortlist ?? []).map((c) => c.id).filter(Boolean).slice(0, 10)
+
+  // 1) Persist the full intake session (fire-and-forget — never fail the lead)
+  const { error } = await supabase.from('scope_requests').insert(
+    withTrade({
+      transcript: Array.isArray(sa?.transcript) ? sa!.transcript.slice(0, 60) : [],
+      scope_summary: sa?.scope_summary ?? null,
+      shortlist: sa?.shortlist ?? [],
+      service_type: record.service_type,
+      city: record.property_city,
+      state: record.property_state,
+      contact_name: record.requestor_name,
+      contact_email: record.requestor_email,
+      contact_phone: record.requestor_phone,
+      quote_request_id: quoteRequestId,
+      status: 'new',
+    })
+  )
+  if (error) console.error('scope_requests insert error:', error)
+
+  if (!shortlistIds.length || !sa?.scope_summary) return
+
+  // 2) Notify shortlisted contractors — only those with an email on file.
+  //    Emails looked up server-side, trade-scoped — never trusted from client.
+  const { data: contractors } = await supabase
+    .from('contractors')
+    .select('id, company_name, email')
+    .in('id', shortlistIds)
+    .eq('trade', TRADE_KEY)
+
+  const withEmail = (contractors ?? []).filter((c) => c.email)
+  for (const c of withEmail) {
+    await sendNotification({
+      to: c.email as string,
+      subject: `[My HVAC Tech] New job lead: ${titleCase(record.service_type)} in ${record.property_city || record.property_state || 'your area'}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #171717; color: white; padding: 24px 32px; border-radius: 12px 12px 0 0;">
+            <h1 style="margin: 0; font-size: 20px; font-weight: 700;">You've been matched with a new job</h1>
+            <p style="margin: 8px 0 0; color: #a3a3a3; font-size: 14px;">My HVAC Tech</p>
+          </div>
+          <div style="border: 1px solid #e5e5e5; border-top: none; padding: 24px 32px; border-radius: 0 0 12px 12px;">
+            <p style="font-size: 14px; color: #404040;">Hi ${c.company_name},</p>
+            <p style="font-size: 14px; color: #404040;">A property contact just described this job on My HVAC Tech and you made their shortlist:</p>
+            <p style="font-size: 14px; color: #171717; background: #f5f5f5; padding: 12px 16px; border-radius: 8px; line-height: 1.6;">${esc(sa.scope_summary)}</p>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tr><td style="padding: 6px 0; color: #737373; width: 110px;">Service</td><td style="padding: 6px 0; font-weight: 600;">${titleCase(record.service_type)}</td></tr>
+              <tr><td style="padding: 6px 0; color: #737373;">Location</td><td style="padding: 6px 0;">${esc([record.property_city, record.property_state].filter(Boolean).join(', ')) || 'Not provided'}</td></tr>
+              <tr><td style="padding: 6px 0; color: #737373;">Contact</td><td style="padding: 6px 0;">${esc(record.requestor_name)} &middot; <a href="mailto:${esc(record.requestor_email)}" style="color: #0284c7;">${esc(record.requestor_email)}</a>${record.requestor_phone ? ` &middot; ${esc(record.requestor_phone)}` : ''}</td></tr>
+            </table>
+          </div>
+        </div>
+      `,
+    })
+  }
 }
