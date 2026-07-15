@@ -7,12 +7,12 @@ import {
 import { HVAC_SERVICES, SITE_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
-  title: 'Commercial HVAC Services',
-  description: 'Browse all commercial HVAC services. Find licensed contractors for AC repair, chiller maintenance, rooftop unit service, emergency HVAC, and more.',
+  title: 'Which Commercial HVAC Service Do You Need?',
+  description: 'Which commercial HVAC service do you need? Browse licensed contractors by service — AC repair, heating repair, chiller maintenance, rooftop units, and more. Compare vetted, commercial-only providers nationwide, free to search.',
   alternates: { canonical: `${SITE_URL}/services` },
   openGraph: {
-    title: 'Commercial HVAC Services',
-    description: 'Find licensed contractors for any commercial HVAC service.',
+    title: 'Which Commercial HVAC Service Do You Need?',
+    description: 'Browse licensed, commercial-only contractors by service type — free to search and compare.',
   },
 }
 
