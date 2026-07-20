@@ -163,6 +163,10 @@ function getFAQ(city: string, stateAbbr: string) {
       q: `What's the best time of year to schedule HVAC maintenance in ${city}?`,
       a: `For cooling systems, schedule spring tune-ups in March–April before peak demand season. For heating systems, fall service in September–October ensures readiness. Scheduling preventive maintenance during off-peak periods gives you faster scheduling and sometimes lower rates.`,
     },
+    {
+      q: `Are commercial HVAC contractors in ${city} licensed and insured?`,
+      a: `Reputable commercial HVAC contractors in ${city} hold a current ${stateAbbr} contractor license and carry general liability plus workers' compensation insurance. Before hiring, ask for the license number and a certificate of insurance — legitimate commercial operators provide both without hesitation.`,
+    },
   ]
 }
 
@@ -257,6 +261,24 @@ export default async function CityPage({ params }: Props) {
       </section>
 
       <div className="max-w-5xl mx-auto px-4 py-10">
+
+        {/* ── Quick Answers (answer-first, top-of-page for AI citation) ──── */}
+        {/* Placed above listings so the citable passage is the first content AI
+            reads. Leads with grounded, numbers-in-it Q&As (unique per city →
+            no duplicate content across the directory). */}
+        <section className="mb-12" aria-label={`Quick answers about commercial HVAC in ${cityName}`}>
+          <h2 className="text-xl font-semibold text-neutral-900 mb-5">
+            Quick Answers: Commercial HVAC in {cityName}, {stateObj.abbr}
+          </h2>
+          <div className="space-y-3">
+            {faq.slice(0, 3).map((item, i) => (
+              <div key={i} className="bg-white border-l-4 border-primary-500 border-y border-r border-neutral-200 rounded-r-xl p-5">
+                <h3 className="text-sm font-semibold text-neutral-900 mb-1.5">{item.q}</h3>
+                <p className="text-sm text-neutral-600 leading-relaxed">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* ── Contractor Listings ──────────────────────────────────────── */}
         <section className="mb-12">
@@ -359,13 +381,13 @@ export default async function CityPage({ params }: Props) {
           </section>
         )}
 
-        {/* ── FAQ ─────────────────────────────────────────────────────────── */}
+        {/* ── FAQ (remaining Qs — top 3 already shown in Quick Answers) ───── */}
         <section>
           <h2 className="text-xl font-semibold text-neutral-900 mb-5">
-            Frequently Asked Questions — Commercial HVAC in {cityName}
+            More Questions — Commercial HVAC in {cityName}
           </h2>
           <div className="space-y-4">
-            {faq.map((item, i) => (
+            {faq.slice(3).map((item, i) => (
               <div key={i} className="bg-white border border-neutral-200 rounded-xl p-5">
                 <h3 className="text-sm font-semibold text-neutral-900 mb-2">{item.q}</h3>
                 <p className="text-sm text-neutral-600 leading-relaxed">{item.a}</p>
