@@ -6,12 +6,14 @@ import { TRADE_KEY } from '@/lib/trade-scope'
 import { Calendar, Clock, ArrowRight, Newspaper } from 'lucide-react'
 import AuthorAvatar from '@/components/AuthorAvatar'
 import { SITE_URL } from '@/lib/constants'
+import { buildOpenGraph } from '@/lib/og'
 
 export const metadata: Metadata = {
   title: 'HVAC Industry News & Insights',
   description:
     'Stay informed on commercial HVAC industry news, tips, regulations, and best practices for property and facility managers.',
   alternates: { canonical: `${SITE_URL}/blog` },
+  openGraph: buildOpenGraph({ title: 'HVAC Industry News & Insights', description: 'Commercial HVAC industry news, tips, and best practices.', path: '/blog' }),
 }
 
 const CATEGORIES = [

@@ -8,6 +8,8 @@ import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TRADE_KEY } from '@/lib/trade-scope'
+import { citySlug } from '@/lib/slug'
+import { buildOpenGraph } from '@/lib/og'
 import { clampTitle, clampDescription } from '@/lib/seo'
 
 // ISR: cache at the edge, refresh hourly (public service-role data only).
@@ -40,24 +42,24 @@ function getServiceObj(serviceSlug: string) {
 
 // ─── Data Fetching ───────────────────────────────────────────────────────────
 
-async function getContractorsForCityService(city: string, stateAbbr: string): Promise<Contractor[]> {
+async function getContractorsForCityService(slug: string, stateAbbr: string, stateName: string): Promise<Contractor[]> {
   const db = createAdminClient()
 
-  // Fetch contractors in this city (service filtering would need a join on
-  // contractor_services, but since not all contractors have services linked yet,
-  // we show all city contractors on the service page — same as search behavior).
+  // Match city by URL slug and state by BOTH abbr and full name — the old
+  // `ilike('city', formattedName)` + abbr-only state match missed punctuated
+  // city names and full-name state rows, wrongly noindexing real pages.
   const { data } = await db
     .from('contractors')
     .select('*')
     .eq('trade', TRADE_KEY)
-    .ilike('city', city)
-    .ilike('state', stateAbbr)
+    .or(`state.ilike.${stateAbbr},state.ilike.${stateName}`)
     .neq('subscription_status', 'cancelled')
     .order('is_verified', { ascending: false })
     .order('avg_rating', { ascending: false })
-    .limit(20)
 
-  return (data ?? []) as unknown as Contractor[]
+  return ((data ?? []) as unknown as Contractor[])
+    .filter((c) => citySlug(c.city) === slug)
+    .slice(0, 20)
 }
 
 // Nearby cities in the same state with enough contractors to be worth linking (>=3,
@@ -189,7 +191,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!stateObj || !serviceObj) return { title: 'Not Found' }
 
   // Noindex pages with fewer than 3 contractors to prevent thin content indexing
-  const contractors = await getContractorsForCityService(cityName, stateObj.abbr)
+  const contractors = await getContractorsForCityService(city, stateObj.abbr, stateObj.name)
   const shouldIndex = contractors.length >= 3
 
   return {
@@ -197,10 +199,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: clampDescription(`Find the best ${serviceObj.name.toLowerCase()} contractors in ${cityName}, ${stateObj.abbr}. Compare verified reviews, pricing, and request free quotes from licensed professionals.`),
     alternates: { canonical: `${SITE_URL}/${state}/${city}/${service}` },
     ...(!shouldIndex && { robots: { index: false, follow: true } }),
-    openGraph: {
+    openGraph: buildOpenGraph({
       title: `${serviceObj.name} in ${cityName}, ${stateObj.abbr}`,
       description: `Top-rated ${serviceObj.name.toLowerCase()} contractors in ${cityName}. Verified reviews, free quotes.`,
-    },
+      path: `/${state}/${city}/${service}`,
+    }),
   }
 }
 
@@ -214,7 +217,7 @@ export default async function CityServicePage({ params }: Props) {
 
   if (!stateObj || !serviceObj) notFound()
 
-  const contractors = await getContractorsForCityService(cityName, stateObj.abbr)
+  const contractors = await getContractorsForCityService(city, stateObj.abbr, stateObj.name)
   const nearbyCities = await getNearbyCities(cityName, stateObj.abbr)
   const whatToExpect = getWhatToExpect(service)
   const quickAnswers = getQuickAnswers(serviceObj.name, cityName, stateObj.abbr, contractors.length)

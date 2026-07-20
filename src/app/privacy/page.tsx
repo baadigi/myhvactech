@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SITE_NAME, SITE_URL } from '@/lib/constants'
+import { buildOpenGraph } from '@/lib/og'
 import { Shield, Mail, ExternalLink } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description: `Privacy Policy for ${SITE_NAME}. Learn how we collect, use, and protect your personal information.`,
   alternates: { canonical: `${SITE_URL}/privacy` },
+  openGraph: buildOpenGraph({ title: 'Privacy Policy', description: `Privacy Policy for ${SITE_NAME}.`, path: '/privacy' }),
 }
 
 const EFFECTIVE_DATE = 'March 6, 2026'

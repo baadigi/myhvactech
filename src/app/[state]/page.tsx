@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { MapPin, ChevronRight, Search, Star, Shield } from 'lucide-react'
 import { US_STATES, HVAC_SERVICES, SITE_URL } from '@/lib/constants'
+import { buildOpenGraph } from '@/lib/og'
 import { FAQSchema, BreadcrumbSchema, ItemListSchema } from '@/components/SchemaOrg'
 import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
@@ -89,10 +90,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `Commercial HVAC Contractors in ${stateObj.name}`,
     description: `Find top-rated commercial HVAC contractors in ${stateObj.name}. Compare verified reviews, request free quotes, and hire certified professionals for your building.`,
     alternates: { canonical: `${SITE_URL}/${state}` },
-    openGraph: {
+    openGraph: buildOpenGraph({
       title: `Commercial HVAC Contractors in ${stateObj.name}`,
       description: `Browse ${stateObj.name}'s best commercial HVAC companies. Verified reviews, licensed contractors, free quotes.`,
-    },
+      path: `/${state}`,
+    }),
   }
 }
 

@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SITE_NAME, SITE_URL } from '@/lib/constants'
+import { buildOpenGraph } from '@/lib/og'
 import { FileText, Mail } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description: `Terms of Service for ${SITE_NAME}. Read our terms and conditions for using the platform.`,
   alternates: { canonical: `${SITE_URL}/terms` },
+  openGraph: buildOpenGraph({ title: 'Terms of Service', description: `Terms of Service for ${SITE_NAME}.`, path: '/terms' }),
 }
 
 const EFFECTIVE_DATE = 'March 6, 2026'

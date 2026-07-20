@@ -8,6 +8,8 @@ import type { Contractor } from '@/lib/types'
 import ContractorCard from '@/components/ContractorCard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TRADE_KEY } from '@/lib/trade-scope'
+import { citySlug } from '@/lib/slug'
+import { buildOpenGraph } from '@/lib/og'
 
 // ISR: cache rendered pages at the edge, refresh hourly. These pages read only
 // public service-role data (no per-request state), so they're safe to cache.
@@ -36,22 +38,25 @@ function getStateObj(stateSlug: string) {
 
 // ─── Data Fetching ───────────────────────────────────────────────────────────
 
-async function getContractorsForCity(city: string, stateAbbr: string, stateName: string): Promise<Contractor[]> {
+async function getContractorsForCity(slug: string, stateAbbr: string, stateName: string): Promise<Contractor[]> {
   const db = createAdminClient()
 
   // State is stored inconsistently (e.g. "CA" and "California") — match both.
+  // Match the city by its URL slug, not `ilike('city', formattedName)`: stored
+  // names carry punctuation ("St. Louis") the reverse-formatted name never
+  // matched, returning 0 → wrong noindex + orphaned contractors.
   const { data } = await db
     .from('contractors')
     .select('*')
     .eq('trade', TRADE_KEY)
-    .ilike('city', city)
     .or(`state.ilike.${stateAbbr},state.ilike.${stateName}`)
     .neq('subscription_status', 'cancelled')
     .order('google_review_count', { ascending: false, nullsFirst: false })
     .order('google_rating', { ascending: false, nullsFirst: false })
-    .limit(20)
 
-  return (data ?? []) as unknown as Contractor[]
+  return ((data ?? []) as unknown as Contractor[])
+    .filter((c) => citySlug(c.city) === slug)
+    .slice(0, 20)
 }
 
 async function getNearbyCities(city: string, stateAbbr: string, stateName: string): Promise<string[]> {
@@ -121,7 +126,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   // Thin-content gate: noindex city pages with fewer than 3 contractors.
   const contractors = stateObj
-    ? await getContractorsForCity(cityName, stateObj.abbr, stateObj.name)
+    ? await getContractorsForCity(city, stateObj.abbr, stateObj.name)
     : []
   const shouldIndex = contractors.length >= 3
 
@@ -130,10 +135,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: `Find and compare the best commercial HVAC contractors in ${cityName}, ${stateDisplay}. Verified reviews, licensed professionals, free quotes for your commercial property.`,
     alternates: { canonical: `${SITE_URL}/${state}/${city}` },
     ...(!shouldIndex && { robots: { index: false, follow: true } }),
-    openGraph: {
+    openGraph: buildOpenGraph({
       title: `Commercial HVAC Contractors in ${cityName}, ${stateDisplay}`,
       description: `Top-rated commercial HVAC companies in ${cityName}. Read reviews and get free quotes.`,
-    },
+      path: `/${state}/${city}`,
+    }),
   }
 }
 
@@ -169,7 +175,7 @@ export default async function CityPage({ params }: Props) {
   if (!stateObj) notFound()
 
   const [contractors, nearbyCities] = await Promise.all([
-    getContractorsForCity(cityName, stateObj.abbr, stateObj.name),
+    getContractorsForCity(city, stateObj.abbr, stateObj.name),
     getNearbyCities(cityName, stateObj.abbr, stateObj.name),
   ])
 

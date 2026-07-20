@@ -18,6 +18,8 @@ import { formatPhoneNumber, externalUrl } from '@/lib/utils'
 import { BreadcrumbSchema, FAQSchema } from '@/components/SchemaOrg'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TRADE_KEY } from '@/lib/trade-scope'
+import { citySlug as toCitySlug, stateSlug as toStateSlug } from '@/lib/slug'
+import { buildOpenGraph } from '@/lib/og'
 import { clampTitle, clampDescription } from '@/lib/seo'
 
 // ISR: cache at the edge, refresh hourly (public service-role data only).
@@ -178,11 +180,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: { absolute: clampTitle(rawTitle) },
     description: clampDescription(contractor.meta_description || `${contractor.company_name} is a commercial HVAC contractor serving ${contractor.city}, ${contractor.state}. View services, verified reviews and ratings, contact info, and request a free quote on My HVAC Tech.`),
     alternates: { canonical: `${SITE_URL}/contractors/${slug}` },
-    openGraph: {
+    openGraph: buildOpenGraph({
       title: contractor.company_name,
-      description: contractor.short_description || contractor.meta_description || '',
-      type: 'website',
-    },
+      description: contractor.short_description || contractor.meta_description || `${contractor.company_name} — commercial HVAC contractor in ${contractor.city}, ${contractor.state}.`,
+      path: `/contractors/${slug}`,
+    }),
   }
 }
 
@@ -255,8 +257,10 @@ export default async function ContractorProfilePage({ params }: Props) {
   )
   const stateName = stateMatch?.name ?? contractor.state
   const stateAbbr = stateMatch?.abbr ?? contractor.state
-  const stateSlug = stateName.toLowerCase().replace(/\s+/g, '-')
-  const citySlug = contractor.city.toLowerCase().replace(/\s+/g, '-')
+  // Shared slug helpers so the city link resolves — the old inline version
+  // skipped punctuation-stripping and broke "St. Louis" links.
+  const stateSlug = toStateSlug(stateName)
+  const citySlug = toCitySlug(contractor.city)
 
   // Cluster links: head-term service pillars + ones matched to this contractor's systems.
   const SYSTEM_SERVICE_MAP: Record<string, string> = {
