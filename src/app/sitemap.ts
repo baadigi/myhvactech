@@ -1,6 +1,8 @@
 import { MetadataRoute } from 'next'
 import { createClient } from '@supabase/supabase-js'
 import { SITE_URL, HVAC_SERVICES, US_STATES } from '@/lib/constants'
+import { TRADE_KEY } from '@/lib/trade-scope'
+import { citySlug, stateSlug } from '@/lib/slug'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages
   routes.push(
     { url: SITE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1.0 },
-    { url: `${SITE_URL}/search`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+    // /search is intentionally noindex — keep it out of the sitemap.
     { url: `${SITE_URL}/for-contractors`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
     { url: `${SITE_URL}/for-contractors/pricing`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
     { url: `${SITE_URL}/services`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
@@ -52,10 +54,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (supabaseUrl && supabaseKey) {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Contractor profiles
+    // Contractor profiles — MUST filter by trade: this Supabase project is
+    // shared across every trade directory, so an unscoped query emits other
+    // trades' contractor/city URLs that this site 404s on (crawl 2026-07-14:
+    // 200+ 404s, 193 4XX-in-sitemap).
     const { data: contractors } = await supabase
       .from('contractors')
       .select('slug, updated_at, city, state')
+      .eq('trade', TRADE_KEY)
       .neq('subscription_status', 'cancelled')
 
     if (contractors) {
@@ -70,57 +76,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       })
 
       // ── City pages derived from contractors table ──────────────────
-      // Build unique city/state combinations from actual contractor data
-      const cityStateMap = new Map<string, { city: string; stateAbbr: string }>()
+      // Group by the SAME (stateSlug, citySlug) the page routes resolve, and
+      // fold both state representations ("MO"/"Missouri") into one, mirroring
+      // the city page's citySlug match + state.ilike gate. Only sitemap a city
+      // once it clears the page's 3-contractor noindex gate — otherwise we list
+      // pages the page then noindexes ("noindex page in sitemap").
+      const cityCount = new Map<string, number>()
+      const cityMeta = new Map<string, { city: string; state: string }>()
 
       for (const c of contractors) {
-        if (c.city && c.state) {
-          const key = `${c.city.toLowerCase()}|${c.state.toLowerCase()}`
-          if (!cityStateMap.has(key)) {
-            cityStateMap.set(key, { city: c.city, stateAbbr: c.state })
-          }
-        }
-      }
-
-      // Count contractors per city for thin content gating
-      const cityContractorCount = new Map<string, number>()
-      for (const c of contractors) {
-        if (c.city && c.state) {
-          const key = `${c.city.toLowerCase()}|${c.state.toLowerCase()}`
-          cityContractorCount.set(key, (cityContractorCount.get(key) || 0) + 1)
-        }
-      }
-
-      for (const { city, stateAbbr } of cityStateMap.values()) {
-        // Find the full state name to build the state slug
+        if (!c.city || !c.state) continue
         const stateObj = US_STATES.find(
-          s => s.abbr.toLowerCase() === stateAbbr.toLowerCase()
+          s => s.abbr.toLowerCase() === c.state.toLowerCase() || s.name.toLowerCase() === c.state.toLowerCase()
         )
         if (!stateObj) continue
+        const key = `${stateSlug(stateObj.name)}|${citySlug(c.city)}`
+        cityCount.set(key, (cityCount.get(key) || 0) + 1)
+        if (!cityMeta.has(key)) cityMeta.set(key, { city: citySlug(c.city), state: stateSlug(stateObj.name) })
+      }
 
-        const stateSlug = stateObj.name.toLowerCase().replace(/\s+/g, '-')
-        const citySlug = city.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-        const count = cityContractorCount.get(`${city.toLowerCase()}|${stateAbbr.toLowerCase()}`) || 0
+      for (const [key, { city, state }] of cityMeta) {
+        if ((cityCount.get(key) || 0) < 3) continue
 
-        // City page
         routes.push({
-          url: `${SITE_URL}/${stateSlug}/${citySlug}`,
+          url: `${SITE_URL}/${state}/${city}`,
           lastModified: new Date(),
           changeFrequency: 'weekly',
           priority: 0.7,
         })
-
-        // City + service pages — only include if 3+ contractors to avoid thin content
-        if (count >= 3) {
-          HVAC_SERVICES.forEach(service => {
-            routes.push({
-              url: `${SITE_URL}/${stateSlug}/${citySlug}/${service.slug}`,
-              lastModified: new Date(),
-              changeFrequency: 'weekly',
-              priority: 0.65,
-            })
+        HVAC_SERVICES.forEach(service => {
+          routes.push({
+            url: `${SITE_URL}/${state}/${city}/${service.slug}`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly',
+            priority: 0.65,
           })
-        }
+        })
       }
     }
 
@@ -128,6 +119,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const { data: blogPosts } = await supabase
       .from('blog_posts')
       .select('slug, published_at, updated_at')
+      .eq('trade', TRADE_KEY)
       .eq('status', 'published')
       .not('published_at', 'is', null)
 

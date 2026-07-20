@@ -6,6 +6,7 @@ import {
   CheckCircle, ChevronRight, Search, MapPin, HelpCircle
 } from 'lucide-react'
 import { HVAC_SERVICES, SITE_URL } from '@/lib/constants'
+import { buildOpenGraph } from '@/lib/og'
 import { clampDescription } from '@/lib/seo'
 import { ServiceSchema, FAQSchema, BreadcrumbSchema } from '@/components/SchemaOrg'
 
@@ -82,10 +83,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${service.name} Contractors`,
     description: clampDescription(`Find licensed ${service.name.toLowerCase()} contractors near you. Compare verified reviews, request free quotes, and hire certified commercial HVAC professionals.`),
     alternates: { canonical: `${SITE_URL}/services/${service.slug}` },
-    openGraph: {
+    openGraph: buildOpenGraph({
       title: `${service.name} — Commercial HVAC Contractors`,
       description: `Find licensed ${service.name.toLowerCase()} contractors near you. Verified reviews, free quotes.`,
-    },
+      path: `/services/${service.slug}`,
+    }),
   }
 }
 

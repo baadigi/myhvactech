@@ -1,10 +1,12 @@
 import { Metadata } from 'next'
 import { SUBSCRIPTION_TIERS, SITE_URL } from '@/lib/constants'
+import { buildOpenGraph } from '@/lib/og'
 
 export const metadata: Metadata = {
   title: 'Pricing Plans for HVAC Contractors',
   description: 'Choose the right plan for your commercial HVAC business. Start free, upgrade when you are ready.',
   alternates: { canonical: `${SITE_URL}/for-contractors/pricing` },
+  openGraph: buildOpenGraph({ title: 'Pricing Plans for HVAC Contractors', description: 'Choose the right plan for your commercial HVAC business.', path: '/for-contractors/pricing' }),
 }
 
 export default function PricingPage() {

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SITE_NAME, SITE_URL } from '@/lib/constants'
+import { buildOpenGraph } from '@/lib/og'
 import {
   Building2,
   Shield,
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
   title: 'About',
   description: `About ${SITE_NAME} — the commercial HVAC marketplace built for property and facility managers. Not residential. Not Angi. Commercial only.`,
   alternates: { canonical: `${SITE_URL}/about` },
+  openGraph: buildOpenGraph({ title: 'About', description: `About ${SITE_NAME} — the commercial HVAC marketplace for property and facility managers.`, path: '/about' }),
 }
 
 const DIFFERENTIATORS = [

@@ -250,4 +250,7 @@ export const US_STATES = [
   { name: 'West Virginia', abbr: 'WV' },
   { name: 'Wisconsin', abbr: 'WI' },
   { name: 'Wyoming', abbr: 'WY' },
+  // DC has real coverage. Without it, DC contractors fell through to the raw
+  // abbr and produced broken "/dc/<city>" links (404).
+  { name: 'District of Columbia', abbr: 'DC' },
 ] as const
