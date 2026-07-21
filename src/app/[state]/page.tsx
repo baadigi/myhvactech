@@ -36,7 +36,7 @@ async function getCitiesForState(stateAbbr: string): Promise<string[]> {
     .from('contractors')
     .select('city')
     .eq('trade', TRADE_KEY)
-    .ilike('state', stateAbbr)
+    .eq('state', stateAbbr)
     .neq('subscription_status', 'cancelled')
 
   if (!data) return []
@@ -62,7 +62,7 @@ async function getFeaturedContractors(stateAbbr: string): Promise<Contractor[]> 
     .from('contractors')
     .select('*')
     .eq('trade', TRADE_KEY)
-    .ilike('state', stateAbbr)
+    .eq('state', stateAbbr)
     .neq('subscription_status', 'cancelled')
     .order('is_verified', { ascending: false })
     .order('avg_rating', { ascending: false })

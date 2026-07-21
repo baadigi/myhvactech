@@ -38,10 +38,11 @@ function getStateObj(stateSlug: string) {
 
 // ─── Data Fetching ───────────────────────────────────────────────────────────
 
-async function getContractorsForCity(slug: string, stateAbbr: string, stateName: string): Promise<Contractor[]> {
+async function getContractorsForCity(slug: string, stateAbbr: string): Promise<Contractor[]> {
   const db = createAdminClient()
 
-  // State is stored inconsistently (e.g. "CA" and "California") — match both.
+  // State is stored as uppercase 2-letter codes (verified: all 21k rows), so
+  // eq() hits the (trade,state,city) btree index instead of forcing a seq scan.
   // Match the city by its URL slug, not `ilike('city', formattedName)`: stored
   // names carry punctuation ("St. Louis") the reverse-formatted name never
   // matched, returning 0 → wrong noindex + orphaned contractors.
@@ -49,7 +50,7 @@ async function getContractorsForCity(slug: string, stateAbbr: string, stateName:
     .from('contractors')
     .select('*')
     .eq('trade', TRADE_KEY)
-    .or(`state.ilike.${stateAbbr},state.ilike.${stateName}`)
+    .eq('state', stateAbbr)
     .neq('subscription_status', 'cancelled')
     .order('google_review_count', { ascending: false, nullsFirst: false })
     .order('google_rating', { ascending: false, nullsFirst: false })
@@ -59,14 +60,14 @@ async function getContractorsForCity(slug: string, stateAbbr: string, stateName:
     .slice(0, 20)
 }
 
-async function getNearbyCities(city: string, stateAbbr: string, stateName: string): Promise<string[]> {
+async function getNearbyCities(city: string, stateAbbr: string): Promise<string[]> {
   const db = createAdminClient()
 
   const { data } = await db
     .from('contractors')
     .select('city')
     .eq('trade', TRADE_KEY)
-    .or(`state.ilike.${stateAbbr},state.ilike.${stateName}`)
+    .eq('state', stateAbbr)
     .neq('subscription_status', 'cancelled')
 
   if (!data) return []
@@ -126,7 +127,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   // Thin-content gate: noindex city pages with fewer than 3 contractors.
   const contractors = stateObj
-    ? await getContractorsForCity(city, stateObj.abbr, stateObj.name)
+    ? await getContractorsForCity(city, stateObj.abbr)
     : []
   const shouldIndex = contractors.length >= 3
 
@@ -179,8 +180,8 @@ export default async function CityPage({ params }: Props) {
   if (!stateObj) notFound()
 
   const [contractors, nearbyCities] = await Promise.all([
-    getContractorsForCity(city, stateObj.abbr, stateObj.name),
-    getNearbyCities(cityName, stateObj.abbr, stateObj.name),
+    getContractorsForCity(city, stateObj.abbr),
+    getNearbyCities(cityName, stateObj.abbr),
   ])
 
   const stats = getCityStats(contractors)

@@ -42,17 +42,17 @@ function getServiceObj(serviceSlug: string) {
 
 // ─── Data Fetching ───────────────────────────────────────────────────────────
 
-async function getContractorsForCityService(slug: string, stateAbbr: string, stateName: string): Promise<Contractor[]> {
+async function getContractorsForCityService(slug: string, stateAbbr: string): Promise<Contractor[]> {
   const db = createAdminClient()
 
-  // Match city by URL slug and state by BOTH abbr and full name — the old
-  // `ilike('city', formattedName)` + abbr-only state match missed punctuated
-  // city names and full-name state rows, wrongly noindexing real pages.
+  // Match city by URL slug (stored names carry punctuation like "St. Louis" that
+  // reverse-formatting misses). State is stored as uppercase 2-letter codes, so
+  // eq() uses the (trade,state,city) btree index instead of a seq scan.
   const { data } = await db
     .from('contractors')
     .select('*')
     .eq('trade', TRADE_KEY)
-    .or(`state.ilike.${stateAbbr},state.ilike.${stateName}`)
+    .eq('state', stateAbbr)
     .neq('subscription_status', 'cancelled')
     .order('is_verified', { ascending: false })
     .order('avg_rating', { ascending: false })
@@ -70,7 +70,7 @@ async function getNearbyCities(city: string, stateAbbr: string, limit = 8): Prom
     .from('contractors')
     .select('city')
     .eq('trade', TRADE_KEY)
-    .ilike('state', stateAbbr)
+    .eq('state', stateAbbr)
     .neq('subscription_status', 'cancelled')
   if (!data) return []
   const counts = new Map<string, number>()
@@ -191,7 +191,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!stateObj || !serviceObj) return { title: 'Not Found' }
 
   // Noindex pages with fewer than 3 contractors to prevent thin content indexing
-  const contractors = await getContractorsForCityService(city, stateObj.abbr, stateObj.name)
+  const contractors = await getContractorsForCityService(city, stateObj.abbr)
   const shouldIndex = contractors.length >= 3
 
   return {
@@ -217,7 +217,7 @@ export default async function CityServicePage({ params }: Props) {
 
   if (!stateObj || !serviceObj) notFound()
 
-  const contractors = await getContractorsForCityService(city, stateObj.abbr, stateObj.name)
+  const contractors = await getContractorsForCityService(city, stateObj.abbr)
   const nearbyCities = await getNearbyCities(cityName, stateObj.abbr)
   const whatToExpect = getWhatToExpect(service)
   const quickAnswers = getQuickAnswers(serviceObj.name, cityName, stateObj.abbr, contractors.length)
