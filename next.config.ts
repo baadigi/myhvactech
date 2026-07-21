@@ -44,6 +44,13 @@ const nextConfig: NextConfig = {
       },
     ]
   },
+  // Bare /contractors has no index route (only /contractors/[slug]) — it 404s.
+  // Send it to the browse surface instead of a dead end.
+  async redirects() {
+    return [
+      { source: '/contractors', destination: '/search', permanent: true },
+    ]
+  },
   poweredByHeader: false,
   compress: true,
 }
