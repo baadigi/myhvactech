@@ -36,7 +36,7 @@ export default async function ClaimListingPage({ params }: Props) {
 
   const { data: contractor } = await supabase
     .from('contractors')
-    .select('id, company_name, city, state, phone, is_claimed, slug')
+    .select('id, company_name, city, state, phone, website, is_claimed, slug')
     .eq('trade', TRADE_KEY)
     .eq('slug', slug)
     .single()

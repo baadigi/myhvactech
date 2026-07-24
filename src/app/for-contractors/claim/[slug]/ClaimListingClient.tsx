@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
-import { CheckCircle, AlertTriangle, Building2, MapPin, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Building2, MapPin, ArrowLeft, ShieldCheck, Gauge, ArrowRight } from 'lucide-react'
 import { trackEvent } from '@/lib/analytics'
+import { TRADE_KEY } from '@/lib/trade-scope'
 
 interface ContractorInfo {
   id: string
@@ -14,6 +15,7 @@ interface ContractorInfo {
   city: string
   state: string
   phone: string | null
+  website: string | null
   is_claimed: boolean
   slug: string
 }
@@ -59,6 +61,34 @@ export default function ClaimListingClient({ contractor }: { contractor: Contrac
   const set = (field: keyof ClaimFormData, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }))
   }
+
+  // Free perk for listed contractors: a one-click website audit of their own site,
+  // deep-linked to audit.baadigi.com prefilled with their domain. Only when we have one.
+  const auditCta = contractor.website ? (
+    <a
+      href={`https://audit.baadigi.com/?url=${encodeURIComponent(contractor.website)}&src=${TRADE_KEY}-claim`}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => trackEvent('audit_cta_click')}
+      className="block rounded-lg border border-primary-200 bg-primary-50 p-4 mb-6 hover:border-primary-300 transition-colors"
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-9 h-9 rounded-lg bg-primary-600 flex items-center justify-center shrink-0">
+          <Gauge size={18} className="text-white" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-neutral-900">Free with your listing: Website Audit</p>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            See your live Google ranking, SEO health, and what&apos;s costing you leads — a free
+            report on your site. Takes about 2 minutes, no signup.
+          </p>
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 mt-2">
+            Run my free audit <ArrowRight size={12} />
+          </span>
+        </div>
+      </div>
+    </a>
+  ) : null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -207,6 +237,8 @@ export default function ClaimListingClient({ contractor }: { contractor: Contrac
             </div>
           </div>
 
+          {auditCta}
+
           <div className="space-y-3">
             <Link
               href={`/signup?next=${encodeURIComponent(`/for-contractors/claim/${contractor.slug}`)}`}
@@ -272,6 +304,8 @@ export default function ClaimListingClient({ contractor }: { contractor: Contrac
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {auditCta}
+
             <p className="text-sm text-neutral-600 mb-2">
               Fill out the form below and our team will verify your ownership within 1–2 business days.
             </p>
