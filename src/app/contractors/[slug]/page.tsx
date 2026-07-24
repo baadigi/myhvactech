@@ -523,6 +523,21 @@ export default async function ContractorProfilePage({ params }: Props) {
             </button>
           </div>
 
+          {/* Soft owner nudge → free audit, prefilled with their own site */}
+          {contractor.website && (
+            <p className="mt-3 text-xs text-neutral-400">
+              Own {contractor.company_name}?{' '}
+              <a
+                href={`https://audit.baadigi.com/?url=${encodeURIComponent(externalUrl(contractor.website) || contractor.website)}&src=${TRADE_KEY}-listing`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 hover:text-primary-700 font-medium underline underline-offset-2"
+              >
+                See your free visibility report
+              </a>
+            </p>
+          )}
+
           {/* ── Main Layout ────────────────────────────────────────────────── */}
           <div className="flex flex-col xl:flex-row gap-8 pb-16">
 
