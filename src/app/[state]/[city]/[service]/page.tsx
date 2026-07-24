@@ -190,15 +190,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!stateObj || !serviceObj) return { title: 'Not Found' }
 
-  // Noindex pages with fewer than 3 contractors to prevent thin content indexing
-  const contractors = await getContractorsForCityService(city, stateObj.abbr)
-  const shouldIndex = contractors.length >= 3
-
   return {
     title: { absolute: clampTitle(`${serviceObj.name} in ${cityName}, ${stateObj.abbr} | My HVAC Tech`) },
     description: clampDescription(`Find the best ${serviceObj.name.toLowerCase()} contractors in ${cityName}, ${stateObj.abbr}. Compare verified reviews, pricing, and request free quotes from licensed professionals.`),
     alternates: { canonical: `${SITE_URL}/${state}/${city}/${service}` },
-    ...(!shouldIndex && { robots: { index: false, follow: true } }),
+    // Always noindex: service pages render the same contractor list as the parent
+    // city (no per-service listing data), so they are near-duplicates at scale — the
+    // driver of the March 2026 mass-deindex. Keep follow so link equity flows to the
+    // contractor/city pages that DO convert.
+    robots: { index: false, follow: true },
     openGraph: buildOpenGraph({
       title: `${serviceObj.name} in ${cityName}, ${stateObj.abbr}`,
       description: `Top-rated ${serviceObj.name.toLowerCase()} contractors in ${cityName}. Verified reviews, free quotes.`,

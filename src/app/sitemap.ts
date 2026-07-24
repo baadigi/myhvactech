@@ -104,14 +104,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           changeFrequency: 'weekly',
           priority: 0.7,
         })
-        HVAC_SERVICES.forEach(service => {
-          routes.push({
-            url: `${SITE_URL}/${state}/${city}/${service.slug}`,
-            lastModified: new Date(),
-            changeFrequency: 'weekly',
-            priority: 0.65,
-          })
-        })
+        // City/service pages are intentionally NOT sitemapped and are noindexed on
+        // the page: they render the same contractor list as the parent city (no
+        // per-service listing data), so every service under a city is a near-duplicate.
+        // That mass of dupes is what triggered the March 2026 deindex here (993 indexed
+        // pages -> 3). Routes stay live + crawlable (follow) for internal-link equity.
       }
     }
 
