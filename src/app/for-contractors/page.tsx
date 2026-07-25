@@ -6,7 +6,7 @@ import {
   MapPin, Award, Filter, Clock, DollarSign,
   Users, Zap, Target
 } from 'lucide-react'
-import { SUBSCRIPTION_TIERS, SITE_URL } from '@/lib/constants'
+import { SITE_URL } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Get Commercial HVAC Leads from Property Managers',
@@ -91,36 +91,10 @@ const LEAD_DIFFERENTIATORS = [
   },
 ]
 
-const TIER_FEATURES = [
-  {
-    label: 'Leads per month',
-    free: 'Up to 5',
-    bronze: 'Up to 20',
-    silver: 'Up to 50',
-    gold: 'Unlimited',
-  },
-  {
-    label: 'Market slot',
-    free: 'Standard',
-    bronze: 'Standard',
-    silver: 'Preferred',
-    gold: 'Priority / Exclusive',
-  },
-  { label: 'Listing visibility', free: 'Basic', bronze: 'Enhanced', silver: 'Priority', gold: 'Featured' },
-  { label: 'Photos', free: 'Up to 3', bronze: 'Up to 10', silver: 'Up to 25', gold: 'Unlimited' },
-  { label: 'Service areas', free: '1', bronze: '3', silver: '10', gold: 'Unlimited' },
-  { label: 'Commercially Verified badge', free: false, bronze: false, silver: true, gold: true },
-  { label: 'Respond to reviews', free: false, bronze: true, silver: true, gold: true },
-  { label: 'Analytics dashboard', free: false, bronze: 'Basic', silver: 'Full', gold: 'Advanced + IP lookup' },
-  { label: 'Lead notifications', free: 'Email', bronze: 'Email + SMS', silver: 'Real-time', gold: 'Real-time + CRM webhook' },
-  { label: 'Booking calendar', free: false, bronze: false, silver: true, gold: true },
-  { label: 'Quote auto-response', free: false, bronze: false, silver: false, gold: true },
-]
-
 const FAQ = [
   {
     q: 'How do market slots work?',
-    a: 'Each metro area has a finite number of slots per tier. Standard slots (Free/Bronze) are included in the default rotation. Preferred slots (Silver) give your listing priority placement in search results for your metro. Exclusive/Priority slots (Gold) give you first-right-of-refusal on leads in your market, and in high-demand metros, Gold contractors can hold an exclusive slot that limits competing Gold contractors in the same geography.',
+    a: 'Each metro area has a finite number of slots. Once you claim your business and get verified, you enter the rotation for leads in your metro. Each lead is routed to a maximum of 3 contractors, so you are never bidding against a crowd.',
   },
   {
     q: 'What information do I get with each lead?',
@@ -132,34 +106,15 @@ const FAQ = [
   },
   {
     q: 'How do I get the Commercially Verified badge?',
-    a: 'Commercially Verified status is available on Silver and Gold plans. We confirm your state contractor license, insurance certificate, and review your commercial project history. Once verified, the badge displays on all your profile pages and search results, and you are eligible for 3x lead volume compared to unverified listings.',
+    a: 'We confirm your state contractor license, insurance certificate, and review your commercial project history. Once verified, the badge displays on all your profile pages and search results, and you are eligible for 3x lead volume compared to unverified listings.',
   },
   {
     q: 'Is it really free to list my business?',
-    a: 'Yes. A basic listing with your contact info, services, and one service area is completely free. You receive up to 5 leads per month on the Free plan. You only pay when you want enhanced features, priority placement, or a higher lead volume cap.',
-  },
-  {
-    q: 'Can I cancel my subscription anytime?',
-    a: 'Yes. Monthly plans can be cancelled at any time and you retain access through the end of the billing period. Annual plans are discounted but are non-refundable after 30 days.',
+    a: 'Yes — completely free right now. There are no plans, no credit card, and no charge to list your business, get verified, and start receiving commercial leads. Add your contact info, services, and service areas and you are live.',
   },
 ]
 
-function FeatureCell({ value }: { value: boolean | string }) {
-  if (value === false) {
-    return <span className="text-neutral-300">—</span>
-  }
-  if (value === true) {
-    return <CheckCircle size={16} className="text-accent-500 mx-auto" aria-label="Included" />
-  }
-  return <span className="text-xs text-neutral-700 font-medium">{value}</span>
-}
-
 export default function ForContractorsPage() {
-  const tiers = Object.entries(SUBSCRIPTION_TIERS) as [
-    keyof typeof SUBSCRIPTION_TIERS,
-    (typeof SUBSCRIPTION_TIERS)[keyof typeof SUBSCRIPTION_TIERS],
-  ][]
-
   return (
     <main className="min-h-screen bg-white">
 
@@ -185,10 +140,10 @@ export default function ForContractorsPage() {
               <ArrowRight size={16} aria-hidden="true" />
             </Link>
             <Link
-              href="#pricing"
+              href="/for-contractors/claim"
               className="inline-flex items-center gap-2 bg-primary-600/60 border border-primary-500/50 text-white font-semibold text-base px-8 py-4 rounded-xl hover:bg-primary-600 transition-colors"
             >
-              View Pricing
+              List Your Business Free
             </Link>
           </div>
         </div>
@@ -297,131 +252,42 @@ export default function ForContractorsPage() {
         </div>
       </section>
 
-      {/* ── Pricing ─────────────────────────────────────────────────────── */}
-      <section id="pricing" className="py-16 px-4 bg-neutral-50">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 font-display">Simple, Transparent Pricing</h2>
-            <p className="text-neutral-500 mt-2">Start free. Upgrade to unlock more leads and market slot priority.</p>
-          </div>
 
-          {/* Tier Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-            {tiers.map(([key, tier]) => {
-              const isGold = key === 'gold'
-              const price = tier.price_monthly > 0 ? `$${(tier.price_monthly / 100).toFixed(0)}` : 'Free'
-              const leadsLabel =
-                tier.max_leads_month === -1
-                  ? 'Unlimited leads/mo'
-                  : `Up to ${tier.max_leads_month} leads/mo`
-              return (
-                <div
-                  key={key}
-                  className={`rounded-2xl border p-5 flex flex-col ${
-                    isGold
-                      ? 'border-primary-500 bg-primary-600 text-white shadow-xl ring-2 ring-primary-500'
-                      : 'border-neutral-200 bg-white'
-                  }`}
-                >
-                  {isGold && (
-                    <div className="text-xs font-bold uppercase tracking-wide text-primary-200 mb-2">
-                      Market Slot Priority
-                    </div>
-                  )}
-                  <div className="mb-3">
-                    <h3 className={`text-base font-bold mb-1 ${isGold ? 'text-white' : 'text-neutral-900'}`}>
-                      {tier.name}
-                    </h3>
-                    <div className="flex items-baseline gap-1">
-                      <span className={`text-3xl font-bold font-display ${isGold ? 'text-white' : 'text-neutral-900'}`}>
-                        {price}
-                      </span>
-                      {tier.price_monthly > 0 && (
-                        <span className={`text-sm ${isGold ? 'text-primary-200' : 'text-neutral-400'}`}>/mo</span>
-                      )}
-                    </div>
-                    {tier.price_annual > 0 && (
-                      <p className={`text-xs mt-0.5 ${isGold ? 'text-primary-200' : 'text-neutral-400'}`}>
-                        ${(tier.price_annual / 100 / 12).toFixed(0)}/mo billed annually
-                      </p>
-                    )}
-                  </div>
-                  {/* Lead volume badge */}
-                  <div
-                    className={`text-xs font-semibold px-3 py-1 rounded-full mb-4 inline-block w-fit ${
-                      isGold
-                        ? 'bg-primary-500/60 text-primary-100'
-                        : 'bg-primary-50 text-primary-700'
-                    }`}
-                  >
-                    {leadsLabel}
-                  </div>
-                  <ul className="space-y-2 flex-1 mb-5">
-                    {tier.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2">
-                        <CheckCircle
-                          size={14}
-                          className={`mt-0.5 shrink-0 ${isGold ? 'text-primary-200' : 'text-accent-500'}`}
-                          aria-hidden="true"
-                        />
-                        <span className={`text-xs leading-relaxed ${isGold ? 'text-primary-100' : 'text-neutral-600'}`}>
-                          {feature}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    href={`/for-contractors/claim?tier=${key}`}
-                    className={`w-full text-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                      isGold
-                        ? 'bg-white text-primary-700 hover:bg-primary-50'
-                        : key === 'free'
-                          ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                          : 'bg-primary-500 text-white hover:bg-primary-600'
-                    }`}
-                  >
-                    {key === 'free' ? 'Get Listed Free' : 'Claim Your Slot'}
-                  </Link>
-                </div>
-              )
-            })}
+      {/* ── Free visibility scan (BaaDigi lead magnet) ───────────────────── */}
+      <section className="py-16 px-4 bg-neutral-900">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-white font-display mb-2">
+            Before you list — see if buyers can find you
+          </h2>
+          <p className="text-neutral-400 text-sm mb-6 max-w-xl mx-auto">
+            Run a free scan of your website. See how you show up in Google &amp; AI search, how fast your site loads, and what&apos;s costing you commercial leads. No email required.
+          </p>
+          <div className="rounded-2xl overflow-hidden border border-neutral-700 shadow-xl bg-neutral-900">
+            <iframe
+              src="https://www.baadigi.com/audit/embed?utm_source=myhvactech&utm_medium=directory&utm_campaign=for-contractors"
+              title="Free website visibility scan"
+              loading="lazy"
+              className="w-full"
+              style={{ height: 460, border: 0 }}
+            />
           </div>
+        </div>
+      </section>
 
-          {/* Feature Comparison Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border border-neutral-200 rounded-xl overflow-hidden">
-              <thead>
-                <tr className="bg-neutral-50 border-b border-neutral-200">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wide w-1/3">
-                    Feature
-                  </th>
-                  {tiers.map(([key, tier]) => (
-                    <th key={key} className="text-center px-3 py-3 text-xs font-semibold text-neutral-700 uppercase tracking-wide">
-                      {tier.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {TIER_FEATURES.map((row, i) => (
-                  <tr key={row.label} className={`border-b border-neutral-100 ${i % 2 === 0 ? '' : 'bg-neutral-50'}`}>
-                    <td className={`px-4 py-3 text-xs font-medium ${
-                      row.label === 'Leads per month' || row.label === 'Market slot'
-                        ? 'text-primary-700 font-semibold'
-                        : 'text-neutral-700'
-                    }`}>
-                      {row.label}
-                    </td>
-                    {(['free', 'bronze', 'silver', 'gold'] as const).map((tier) => (
-                      <td key={tier} className="px-3 py-3 text-center">
-                        <FeatureCell value={row[tier]} />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* ── List Your Business (free) ────────────────────────────────────── */}
+      <section id="list" className="py-16 px-4 bg-neutral-50">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-neutral-900 font-display mb-3">List Your Business Free</h2>
+          <p className="text-neutral-500 mb-8 max-w-xl mx-auto">
+            Listing is completely free right now — no plans, no credit card. Add your business, get verified, and start receiving commercial leads in your metro.
+          </p>
+          <Link
+            href="/for-contractors/claim"
+            className="inline-flex items-center gap-2 bg-primary-600 text-white font-semibold text-base px-8 py-4 rounded-xl hover:bg-primary-700 transition-colors shadow-lg"
+          >
+            Get Listed Free
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
         </div>
       </section>
 
