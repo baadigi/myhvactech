@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
+import { offTradeReason } from '@/lib/trade-guard'
 import { pickSubject, imagePrompt, generateAndStoreImage } from '@/lib/blog-images'
 import { submitToIndexNow } from '@/lib/indexnow'
 import { SITE_URL } from '@/lib/constants'
@@ -271,6 +272,7 @@ async function tryGenerateFromQueue(
   let q = db
     .from('blog_topics')
     .select('id, primary_keyword, category, target_city, location_page_path')
+    .eq('trade', TRADE_KEY)
     .eq('status', 'queued')
   if (category) q = q.eq('category', category)
   const { data: topicRows } = await q
@@ -352,6 +354,12 @@ async function tryGenerateFromQueue(
         : null
     const body = buildBody(article.qa || [], bodyWithImages, article.faqs || [], citations, relatedLinks, locationLink)
 
+    // Trade-scope backstop: if the generated title reads as another trade, keep it
+    // as a draft instead of publishing rather than dropping it.
+    const offReason = offTradeReason(title)
+    if (offReason) console.warn(`[scan-news] off-trade (queue): "${title}" — ${offReason}; saving as draft`)
+    const status = offReason ? 'draft' : 'published'
+
     const { data, error } = await db
       .from('blog_posts')
       .insert(withTrade({
@@ -362,8 +370,8 @@ async function tryGenerateFromQueue(
         cover_image_url: coverImageUrl,
         category: topic.category || 'industry-news',
         tags: article.tags || [],
-        status: 'published',
-        published_at: now,
+        status,
+        published_at: status === 'published' ? now : null,
         is_auto_generated: true,
         author_name: 'My HVAC Tech',
         author_email: 'info@myhvac.tech',
@@ -384,12 +392,12 @@ async function tryGenerateFromQueue(
       .update({ status: 'published', published_post_id: data.id, published_at: now, updated_at: now })
       .eq('id', topic.id)
 
-    await submitToIndexNow([`${SITE_URL}/blog/${data.slug}`])
+    if (data.status === 'published') await submitToIndexNow([`${SITE_URL}/blog/${data.slug}`])
 
     return {
       success: true,
-      message: 'Published 1 article from keyword queue',
-      published: 1,
+      message: data.status === 'published' ? 'Published 1 article from keyword queue' : 'Saved 1 off-trade draft from keyword queue',
+      published: data.status === 'published' ? 1 : 0,
       mode: 'keyword',
       keyword: topic.primary_keyword,
       post: data,
@@ -592,7 +600,13 @@ Requirements:
 
     const now = new Date().toISOString()
 
-    // Step 4: Auto-publish (status='published') — this is the autopilot.
+    // Trade-scope backstop: news drift can surface an off-trade story — keep it as
+    // a draft instead of auto-publishing rather than dropping it.
+    const offReason = offTradeReason(title)
+    if (offReason) console.warn(`[scan-news] off-trade (news): "${title}" — ${offReason}; saving as draft`)
+    const status = offReason ? 'draft' : 'published'
+
+    // Step 4: Auto-publish — this is the autopilot (off-trade titles land as draft).
     const { data, error } = await db
       .from('blog_posts')
       .insert(withTrade({
@@ -603,8 +617,8 @@ Requirements:
         cover_image_url: coverImageUrl,
         category: target === 'company-updates' ? 'company-updates' : story.category || 'industry-news',
         tags: article.tags || story.tags || [],
-        status: 'published',
-        published_at: now,
+        status,
+        published_at: status === 'published' ? now : null,
         is_auto_generated: true,
         source_url: story.source_url,
         source_name: story.source_name,
@@ -622,12 +636,12 @@ Requirements:
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    await submitToIndexNow([`${SITE_URL}/blog/${data.slug}`])
+    if (data.status === 'published') await submitToIndexNow([`${SITE_URL}/blog/${data.slug}`])
 
     return NextResponse.json({
       success: true,
-      message: 'Published 1 article',
-      published: 1,
+      message: data.status === 'published' ? 'Published 1 article' : 'Saved 1 off-trade draft',
+      published: data.status === 'published' ? 1 : 0,
       post: data,
     })
   } catch (err) {
