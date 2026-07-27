@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   Wrench,
   Flame,
@@ -12,6 +13,7 @@ import {
   Clock,
   Activity,
   Building2,
+  ArrowRight,
 } from 'lucide-react'
 import { type Service } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -19,6 +21,10 @@ import { cn } from '@/lib/utils'
 interface ServiceCardProps {
   service: Service | { name: string; slug: string; category: string; description?: string | null; icon?: string | null; id?: string }
   className?: string
+  /** 'compact' = icon + label row (default). 'tile' = Angi-style photo tile. */
+  variant?: 'compact' | 'tile'
+  /** Explicit image path for tile variant. Falls back to /images/services/{slug}.png */
+  image?: string
 }
 
 // Map service slugs/names to appropriate icons
@@ -50,7 +56,61 @@ function getServiceIcon(slug: string, category: string): React.ReactNode {
   return <Wrench size={24} />
 }
 
-export default function ServiceCard({ service, className }: ServiceCardProps) {
+export default function ServiceCard({ service, className, variant = 'compact', image }: ServiceCardProps) {
+  // ——— Tile variant: photo-forward card (Angi-style) ———
+  // A branded gradient + icon is ALWAYS painted underneath, so a tile is never
+  // blank/black — even before its photo exists or while it loads. The photo (when
+  // present) covers the base.
+  if (variant === 'tile') {
+    return (
+      <Link
+        href={`/services/${service.slug}`}
+        className={cn(
+          'group relative flex flex-col justify-end overflow-hidden rounded-xl border border-neutral-200 aspect-[4/3]',
+          'bg-gradient-to-br from-primary-700 to-primary-900',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',
+          className
+        )}
+      >
+        {/* Branded fallback layer: large faint icon, centered */}
+        <span
+          className="absolute inset-0 flex items-center justify-center text-white/15 [&>svg]:w-20 [&>svg]:h-20"
+          aria-hidden="true"
+        >
+          {getServiceIcon(service.slug, service.category)}
+        </span>
+
+        {/* Photo (only when a real image exists) */}
+        {image && (
+          <Image
+            src={image}
+            alt={`${service.name} — commercial HVAC contractors`}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        )}
+
+        {/* Gradient scrim for label legibility */}
+        <div
+          className="absolute inset-0 bg-gradient-to-t from-neutral-900/85 via-neutral-900/25 to-transparent"
+          aria-hidden="true"
+        />
+        <div className="relative flex items-end justify-between gap-2 p-4">
+          <h3 className="text-base font-semibold text-white leading-snug drop-shadow-sm">
+            {service.name}
+          </h3>
+          <ArrowRight
+            size={18}
+            className="shrink-0 text-white/80 transition-transform duration-200 group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
+        </div>
+      </Link>
+    )
+  }
+
+  // ——— Compact variant: icon + label row (default) ———
   const icon = getServiceIcon(service.slug, service.category)
 
   return (

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { headers } from 'next/headers'
 import { Search, ClipboardList, CheckCircle, ShieldCheck, Star, MessageSquareDiff, Building2, BadgeCheck, Clock, Users } from 'lucide-react'
 import SearchBar from '@/components/SearchBar'
@@ -8,6 +9,7 @@ import CityCard from '@/components/CityCard'
 import { Button } from '@/components/ui/Button'
 import { HVAC_SERVICES, US_STATES, SITE_URL } from '@/lib/constants'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { serviceImage } from '@/lib/service-images'
 import { TRADE_KEY } from '@/lib/trade-scope'
 import type { Contractor, Service } from '@/lib/types'
 import type { Metadata } from 'next'
@@ -73,6 +75,14 @@ const HOW_IT_WORKS = [
     description:
       'Review verified portfolios, SLAs, and emergency response times side-by-side. Choose the contractor with the right credentials for your facility.',
   },
+]
+
+// Ballpark installed ranges pulled from the same industry-standard model that powers
+// the cost calculator (src/lib/hvac-cost.ts PER_TON). Not fabricated — starting figures.
+const COST_RANGES = [
+  { label: 'Packaged Rooftop Unit (RTU)', range: '$2,000–$3,500', unit: 'per ton installed' },
+  { label: 'VRF / VRV System', range: '$4,000–$6,500', unit: 'per ton installed' },
+  { label: 'Chilled Water / Chiller', range: '$4,500–$8,000', unit: 'per ton installed' },
 ]
 
 const TRUST_INDICATORS = [
@@ -229,23 +239,27 @@ export default async function HomePage() {
           HERO SECTION
       ================================================ */}
       <section
-        className="relative bg-gradient-to-b from-primary-50 to-white pt-14 pb-16 sm:pt-20 sm:pb-20"
+        className="relative pt-16 pb-20 sm:pt-24 sm:pb-28 overflow-hidden"
         aria-labelledby="hero-heading"
       >
-        {/* Subtle grid pattern overlay */}
+        {/* Background photo */}
+        <Image
+          src="/images/hero.webp"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center -z-20"
+        />
+        {/* Dark scrim for text legibility */}
         <div
-          className="absolute inset-0 opacity-40"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle, #cbd5e1 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
-          }}
+          className="absolute inset-0 -z-10 bg-gradient-to-b from-neutral-900/85 via-neutral-900/70 to-neutral-900/85"
           aria-hidden="true"
         />
 
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center">
           {/* Eyebrow */}
-          <p className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 bg-primary-50 border border-primary-100 rounded-full px-3 py-1 mb-5">
+          <p className="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-white/10 border border-white/20 backdrop-blur-sm rounded-full px-3 py-1 mb-5">
             <ShieldCheck size={14} aria-hidden="true" />
             The Commercial HVAC Marketplace
           </p>
@@ -253,16 +267,16 @@ export default async function HomePage() {
           {/* Heading */}
           <h1
             id="hero-heading"
-            className="text-4xl sm:text-5xl font-bold text-neutral-900 leading-tight tracking-tight mb-5"
+            className="text-4xl sm:text-5xl font-bold text-white leading-tight tracking-tight mb-5"
             style={{ fontFamily: 'var(--font-plus-jakarta-sans, "Plus Jakarta Sans", sans-serif)' }}
           >
             Find Vetted{' '}
-            <span className="text-primary-600">Commercial HVAC</span>{' '}
+            <span className="text-primary-300">Commercial HVAC</span>{' '}
             Contractors for Your Facility
           </h1>
 
           {/* Subheading */}
-          <p className="text-lg sm:text-xl text-neutral-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl text-neutral-200 mb-8 max-w-2xl mx-auto leading-relaxed">
             Purpose-built for property and facility managers — not Angi, not HomeAdvisor. Search by building type, system type, and service agreements. Every contractor is vetted for commercial experience, verified SLAs, and emergency response.
           </p>
 
@@ -272,10 +286,10 @@ export default async function HomePage() {
           </div>
 
           {/* Trust indicators */}
-          <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-neutral-500">
+          <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-neutral-300">
             {TRUST_INDICATORS.map((item) => (
               <span key={item.label} className="flex items-center gap-1.5 font-medium">
-                <span className="text-primary-500">{item.icon}</span>
+                <span className="text-primary-300">{item.icon}</span>
                 {item.label}
               </span>
             ))}
@@ -528,9 +542,14 @@ export default async function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {featuredServices.map((service) => (
-              <ServiceCard key={service.id} service={service} />
+              <ServiceCard
+                key={service.id}
+                service={service}
+                variant="tile"
+                image={serviceImage(service.slug) ?? undefined}
+              />
             ))}
           </div>
 
@@ -541,6 +560,51 @@ export default async function HomePage() {
             >
               View all HVAC services →
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================
+          COST GUIDE TEASER
+      ================================================ */}
+      <section className="py-16 sm:py-20 bg-white" aria-labelledby="cost-heading">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h2
+              id="cost-heading"
+              className="text-2xl sm:text-3xl font-bold text-neutral-900 mb-3"
+              style={{ fontFamily: 'var(--font-plus-jakarta-sans, "Plus Jakarta Sans", sans-serif)' }}
+            >
+              What Does Commercial HVAC Cost?
+            </h2>
+            <p className="text-neutral-500 text-base max-w-xl mx-auto">
+              Ballpark installed ranges by system type — a starting point, not a quote. Use the calculator to size your building, then get exact numbers from vetted contractors.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            {COST_RANGES.map((c) => (
+              <div
+                key={c.label}
+                className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center"
+              >
+                <p className="text-sm font-semibold text-neutral-500 mb-2">{c.label}</p>
+                <p className="text-2xl font-bold text-primary-600 mb-1">{c.range}</p>
+                <p className="text-xs text-neutral-400">{c.unit}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <Link
+              href="/resources/commercial-hvac-cost-calculator"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 text-white font-semibold h-12 px-6 text-base hover:bg-primary-700 transition-colors"
+            >
+              Estimate Your Project Cost — Free
+            </Link>
+            <p className="mt-3 text-xs text-neutral-400">
+              Ranges reflect industry-standard installed costs (equipment + labor). Your actual price depends on building, system, and site conditions.
+            </p>
           </div>
         </div>
       </section>
@@ -630,6 +694,19 @@ export default async function HomePage() {
           </p>
         </div>
       </section>
+
+      {/* ================================================
+          STICKY MOBILE CTA — persistent on scroll (mobile only)
+      ================================================ */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-neutral-200 bg-white/95 backdrop-blur-sm p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+        <Link
+          href="/get-quotes"
+          className="flex items-center justify-center gap-2 w-full h-12 rounded-lg bg-primary-600 text-white font-semibold text-sm hover:bg-primary-700 transition-colors"
+        >
+          Get Matched — Free
+          <MessageSquareDiff size={18} aria-hidden="true" />
+        </Link>
+      </div>
     </>
   )
 }
