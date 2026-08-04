@@ -239,7 +239,7 @@ export default async function HomePage() {
           HERO SECTION
       ================================================ */}
       <section
-        className="relative pt-16 pb-20 sm:pt-24 sm:pb-28 overflow-hidden"
+        className="relative pt-8 pb-14 sm:pt-24 sm:pb-28 overflow-hidden"
         aria-labelledby="hero-heading"
       >
         {/* Background photo */}
@@ -276,8 +276,13 @@ export default async function HomePage() {
           </h1>
 
           {/* Subheading */}
-          <p className="text-lg sm:text-xl text-neutral-200 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Purpose-built for property and facility managers — not Angi, not HomeAdvisor. Search by building type, system type, and service agreements. Every contractor is vetted for commercial experience, verified SLAs, and emergency response.
+          {/* Tail is hidden on mobile (kept in the DOM) so the search bar stays above a
+              real ~550px phone fold — it was landing at y=586. */}
+          <p className="text-base sm:text-xl text-neutral-200 mb-6 sm:mb-8 max-w-2xl mx-auto leading-relaxed">
+            Purpose-built for property and facility managers — not Angi, not HomeAdvisor.{' '}
+            <span className="hidden sm:inline">
+              Search by building type, system type, and service agreements. Every contractor is vetted for commercial experience, verified SLAs, and emergency response.
+            </span>
           </p>
 
           {/* Search bar */}

@@ -102,8 +102,43 @@ export default async function SearchPage({ searchParams }: Props) {
 
   // ── Parse the location input smartly ────────────────────────
   const parsed = parseLocation(rawCity)
-  const city = parsed.city || ''
-  const state = parsed.state || rawState || ''
+  let city = parsed.city || ''
+  let state = parsed.state || rawState || ''
+
+  const supabase = createAdminClient()
+
+  // A city typed into the "what do you need?" box ("Dallas") used to be text-searched
+  // against descriptions inside the geo-detected state — 1 irrelevant result, instant
+  // back-button. If q resolves to a real location, treat it as the location.
+  const qLower = q.toLowerCase().trim()
+  const qIsService =
+    !!qLower &&
+    HVAC_SERVICES.some(
+      (svc) =>
+        svc.name.toLowerCase() === qLower ||
+        svc.slug === qLower.replace(/\s+/g, '-') ||
+        qLower.includes(svc.name.toLowerCase()) ||
+        svc.name.toLowerCase().includes(qLower)
+    )
+  let qIsLocation = false
+  if (qLower && !qIsService && !city && !state) {
+    const asLoc = parseLocation(q)
+    if (asLoc.state && !asLoc.city) {
+      state = asLoc.state
+      qIsLocation = true
+    } else if (asLoc.city) {
+      const { count: cityHits } = await supabase
+        .from('contractors')
+        .select('id', { count: 'exact', head: true })
+        .eq('trade', TRADE_KEY)
+        .ilike('city', asLoc.city)
+      if ((cityHits ?? 0) > 0) {
+        city = asLoc.city
+        state = asLoc.state || ''
+        qIsLocation = true
+      }
+    }
+  }
 
   // If user provided no location at all, fall back to geo-detected state
   const useGeoFallback = !city && !state && !rawCity && !rawState
@@ -121,8 +156,6 @@ export default async function SearchPage({ searchParams }: Props) {
         : ''
 
   // ── Fetch from Supabase (admin client bypasses RLS) ────────
-  const supabase = createAdminClient()
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let dbQuery: any = supabase
     .from('contractors')
@@ -138,20 +171,12 @@ export default async function SearchPage({ searchParams }: Props) {
     dbQuery = dbQuery.ilike('state', effectiveState)
   }
 
-  // Smart text search: if q matches a known HVAC service, skip text filtering
-  if (q) {
-    const qLower = q.toLowerCase().trim()
-    const isServiceQuery = HVAC_SERVICES.some(
-      (svc) =>
-        svc.name.toLowerCase() === qLower ||
-        svc.slug === qLower.replace(/\s+/g, '-').toLowerCase() ||
-        qLower.includes(svc.name.toLowerCase()) ||
-        svc.name.toLowerCase().includes(qLower)
-    )
-
-    if (!isServiceQuery) {
+  // Text search only when q is neither a known service nor a location (both already applied)
+  if (q && !qIsService && !qIsLocation) {
+    const safeQ = q.replace(/[,()*]/g, ' ').trim() // these break PostgREST `or` syntax
+    if (safeQ) {
       dbQuery = dbQuery.or(
-        `company_name.ilike.%${q}%,description.ilike.%${q}%,short_description.ilike.%${q}%`
+        `company_name.ilike.%${safeQ}%,description.ilike.%${safeQ}%,short_description.ilike.%${safeQ}%`
       )
     }
   }
@@ -226,8 +251,8 @@ export default async function SearchPage({ searchParams }: Props) {
           </h1>
           <SearchBar
             variant="compact"
-            defaultQuery={params.q || ''}
-            defaultCity={rawCity || (useGeoFallback ? geoFallbackCity : '')}
+            defaultQuery={qIsLocation ? '' : params.q || ''}
+            defaultCity={qIsLocation ? locationLabel : rawCity || (useGeoFallback ? geoFallbackCity : '')}
           />
         </div>
       </div>
