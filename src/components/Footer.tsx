@@ -21,6 +21,14 @@ const companyLinks = [
   { label: 'Terms of Service', href: '/terms' },
 ]
 
+/*
+ * baadigi.com links here are rel="nofollow" on purpose.
+ * This footer renders sitewide. Ahrefs 2026-08-05: the .tech directory network
+ * was sending 51,939 of baadigi.com's 55,852 live backlinks (93%) — all
+ * sitewide footer links from DR 0-3 domains. They pass no authority and read
+ * as a footprint. Links stay visible for readers and referral traffic; only
+ * the crawl signal is dropped.
+ */
 export default function Footer() {
   const currentYear = new Date().getFullYear()
   const topServices = HVAC_SERVICES.slice(0, 6)
@@ -44,7 +52,7 @@ export default function Footer() {
               <a
                 href="https://www.baadigi.com"
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener noreferrer nofollow"
                 className="hover:text-neutral-300 transition-colors underline underline-offset-2"
               >
                 Created by BaaDigi
@@ -110,7 +118,7 @@ export default function Footer() {
                 <a
                   href="https://www.baadigi.com/services/seo/hvac"
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel="noopener noreferrer nofollow"
                   className="text-sm text-neutral-400 hover:text-white transition-colors"
                 >
                   HVAC Marketing
