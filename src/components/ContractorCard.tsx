@@ -134,7 +134,7 @@ export default function ContractorCard({
             <MapPin size={13} aria-hidden="true" />
             {contractor.city}, {contractor.state}
             {contractor.distance_miles !== undefined && (
-              <span className="ml-1 text-neutral-400">
+              <span className="ml-1 text-neutral-600">
                 · {Math.round(contractor.distance_miles)} mi away
               </span>
             )}
@@ -159,7 +159,7 @@ export default function ContractorCard({
                   <Building2 size={11} aria-hidden="true" />
                   {visibleSystemTypes.join(' · ')}
                   {extraSystemCount > 0 && (
-                    <span className="text-neutral-400">+{extraSystemCount}</span>
+                    <span className="text-neutral-600">+{extraSystemCount}</span>
                   )}
                 </span>
               )}
@@ -200,7 +200,7 @@ export default function ContractorCard({
                 count={displayReviewCount}
               />
               {isGoogleRated && (
-                <span className="text-[11px] text-neutral-400">on Google</span>
+                <span className="text-[11px] text-neutral-600">on Google</span>
               )}
             </div>
           )}
