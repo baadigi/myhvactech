@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { findPlaceId, syncContractorGoogle } from '@/lib/google-places'
 import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
-import { HVAC_SERVICES } from '@/lib/constants'
+import { HVAC_SERVICES, US_STATES } from '@/lib/constants'
 import { sendNotification } from '@/lib/email'
 import { pushLeadToGHL } from '@/lib/ghl'
 
@@ -269,6 +271,32 @@ export async function POST(request: NextRequest) {
           console.warn('Some services not found in DB:', unmatchedNames)
         }
       }
+    }
+
+    // Attach Google Place data (coords power the profile map, plus rating/photos/hours).
+    // Best-effort: a signup must never fail because Google didn't answer. If this
+    // misses, the admin "Backfill Google" button picks the row up later.
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY
+    if (apiKey) {
+      try {
+        const st = US_STATES.find(
+          (x) => x.abbr.toLowerCase() === contractor.state.toLowerCase() ||
+                 x.name.toLowerCase() === contractor.state.toLowerCase()
+        )
+        const placeId = await findPlaceId(
+          contractor.company_name,
+          contractor.city,
+          st?.abbr ?? contractor.state,
+          st?.name ?? contractor.state,
+          apiKey
+        )
+        if (placeId) await syncContractorGoogle(placeId, contractor.id, apiKey, createAdminClient())
+        else console.warn('Google Place not found for new registration:', contractor.slug)
+      } catch (err) {
+        console.error('Google sync failed for new registration:', contractor.slug, err)
+      }
+    } else {
+      console.warn('GOOGLE_PLACES_API_KEY not set — new registration has no map:', contractor.slug)
     }
 
     await sendNotification({
