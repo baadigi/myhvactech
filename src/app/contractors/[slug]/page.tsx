@@ -172,13 +172,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const rawTitle = contractor.meta_title
     ? contractor.meta_title.replace(/\s*\|\s*My HVAC Tech\s*$/i, '')
-    : `${contractor.company_name} — ${contractor.city}, ${contractor.state}`
+    : `${contractor.company_name} — Commercial HVAC in ${contractor.city}, ${contractor.state}`
 
   return {
     // `absolute` opts out of the global "%s | My HVAC Tech" template so the
     // clamp is a true 60-char budget (no hidden +15 suffix pushing it over).
     title: { absolute: clampTitle(rawTitle) },
-    description: clampDescription(contractor.meta_description || `${contractor.company_name} is a commercial HVAC contractor serving ${contractor.city}, ${contractor.state}. View services, verified reviews and ratings, contact info, and request a free quote on My HVAC Tech.`),
+    description: clampDescription(contractor.meta_description || `Looking for a commercial HVAC contractor in ${contractor.city}, ${contractor.state}? ${contractor.company_name} is listed on My HVAC Tech with verified reviews and ratings — compare services and request a free quote.`),
     alternates: { canonical: `${SITE_URL}/contractors/${slug}` },
     openGraph: buildOpenGraph({
       title: contractor.company_name,
