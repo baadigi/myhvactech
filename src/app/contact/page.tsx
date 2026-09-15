@@ -203,7 +203,7 @@ export default function ContactPage() {
                 )}
               </button>
 
-              <p className="text-xs text-neutral-400">
+              <p className="text-xs text-neutral-600">
                 By submitting this form, you agree to our{' '}
                 <Link href="/privacy" className="underline hover:text-neutral-600">Privacy Policy</Link>.
               </p>

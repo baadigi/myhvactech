@@ -307,7 +307,7 @@ export default async function HomePage() {
       ================================================ */}
       <section className="py-10 sm:py-12 bg-white border-b border-neutral-100" aria-label="Brands we service">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-6">
+          <p className="text-center text-xs font-semibold uppercase tracking-widest text-neutral-600 mb-6">
             Contractors experienced with all major brands
           </p>
           <div className="relative overflow-hidden">
@@ -595,7 +595,7 @@ export default async function HomePage() {
               >
                 <p className="text-sm font-semibold text-neutral-500 mb-2">{c.label}</p>
                 <p className="text-2xl font-bold text-primary-600 mb-1">{c.range}</p>
-                <p className="text-xs text-neutral-400">{c.unit}</p>
+                <p className="text-xs text-neutral-600">{c.unit}</p>
               </div>
             ))}
           </div>
@@ -607,7 +607,7 @@ export default async function HomePage() {
             >
               Estimate Your Project Cost — Free
             </Link>
-            <p className="mt-3 text-xs text-neutral-400">
+            <p className="mt-3 text-xs text-neutral-600">
               Ranges reflect industry-standard installed costs (equipment + labor). Your actual price depends on building, system, and site conditions.
             </p>
           </div>
@@ -645,7 +645,7 @@ export default async function HomePage() {
               ))}
             </div>
           ) : (
-            <p className="text-center text-neutral-400 text-sm py-8">
+            <p className="text-center text-neutral-600 text-sm py-8">
               City listings will appear here as contractors are added.
             </p>
           )}
