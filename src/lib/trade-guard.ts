@@ -56,3 +56,21 @@ export function offTradeReason(title: string): string | null {
   }
   return null
 }
+
+export type TradeFit = { verdict: 'match' | 'mismatch' | 'unknown'; otherTrade?: string }
+
+// Screens a business's own words (name, description, website copy) against the
+// active site's trade — used to flag self-registered listings for review.
+// 'mismatch' = another trade's distinctive terms with none of ours. A company that
+// does several trades including this one is a 'match'.
+export function tradeFit(text: string): TradeFit {
+  const here = TRADE_VOCAB[TRADE_KEY]
+  if (!here) return { verdict: 'unknown' }
+  if (here.mark.test(text)) return { verdict: 'match' }
+  for (const [trade, v] of Object.entries(TRADE_VOCAB)) {
+    if (trade !== TRADE_KEY && v.mark.test(text)) return { verdict: 'mismatch', otherTrade: trade }
+  }
+  // Trades with no distinctive terms of their own (maintenance) fall back to the
+  // generous vocabulary.
+  return here.own.test(text) ? { verdict: 'match' } : { verdict: 'unknown' }
+}

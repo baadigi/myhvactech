@@ -149,21 +149,42 @@ export default async function DashboardPage() {
           <p className="text-sm text-neutral-500 mt-0.5">{c.company_name}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href={`/contractors/${c.slug}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                <polyline points="15 3 21 3 21 9"/>
-                <line x1="10" x2="21" y1="14" y2="3"/>
-              </svg>
-              Public Listing
-            </Button>
-          </Link>
+          {c.listing_status !== 'pending' && c.listing_status !== 'rejected' && (
+            <Link href={`/contractors/${c.slug}`} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" x2="21" y1="14" y2="3"/>
+                </svg>
+                Public Listing
+              </Button>
+            </Link>
+          )}
           <Link href="/dashboard/profile">
             <Button size="sm">Edit Profile</Button>
           </Link>
         </div>
       </div>
+
+      {/* Listing review state — new listings are hidden until an admin approves them */}
+      {c.listing_status === 'pending' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+          <p className="text-sm font-medium text-yellow-800">Your listing is under review</p>
+          <p className="text-sm text-yellow-700 mt-0.5">
+            We check every new listing by hand before it goes live. You can keep building out your profile in the meantime.
+          </p>
+        </div>
+      )}
+      {c.listing_status === 'rejected' && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+          <p className="text-sm font-medium text-red-800">Your listing is not live</p>
+          <p className="text-sm text-red-700 mt-0.5">
+            It did not pass our review for this directory. If you think that is a mistake,{' '}
+            <Link href="/contact" className="underline font-medium">contact us</Link>.
+          </p>
+        </div>
+      )}
 
       {/* Alert for new leads */}
       {newLeadsCount > 0 && (

@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
 import { HVAC_SERVICES } from '@/lib/constants'
 import { sendNotification } from '@/lib/email'
 import { pushLeadToGHL } from '@/lib/ghl'
+import { screenListing } from '@/lib/listing-screen'
+
+const SCREEN_LABEL = {
+  match: 'Looks right',
+  mismatch: 'WRONG TRADE?',
+  unknown: 'Unsure',
+} as const
 
 // ─── Slug generation ──────────────────────────────────────────────────────────
 
@@ -19,10 +27,11 @@ function generateSlug(companyName: string, city: string): string {
 }
 
 async function deduplicateSlug(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   baseSlug: string
 ): Promise<string> {
-  // Check if the base slug is already taken
+  // Check if the base slug is already taken. Admin client: hidden listings (pending
+  // review, rejected) hold their slug too, and RLS hides them from the registrant.
   const { data } = await supabase
     .from('contractors')
     .select('slug')
@@ -148,7 +157,7 @@ export async function POST(request: NextRequest) {
 
     // Generate deduplicated slug
     const baseSlug = generateSlug(body.company_name.trim(), body.city.trim())
-    const slug = await deduplicateSlug(supabase, baseSlug)
+    const slug = await deduplicateSlug(createAdminClient(), baseSlug)
 
     // Parse numeric fields safely
     const toInt = (v?: string): number | null => {
@@ -215,6 +224,9 @@ export async function POST(request: NextRequest) {
       avg_rating: 0,
       review_count: 0,
       profile_views: 0,
+      // Not live yet: the contractors_listing_guard trigger starts every
+      // self-registration as listing_status='pending' (hidden) until an admin
+      // approves it in /admin/listings.
       subscription_status: 'active',
     }
 
@@ -271,12 +283,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Automated trade check for the review queue — advice only, a person decides.
+    const screen = await screenListing({
+      company_name: contractor.company_name,
+      website: contractor.website,
+    })
+    const { error: screenSaveError } = await createAdminClient()
+      .from('contractors')
+      .update({ listing_review: { screen } })
+      .eq('id', contractor.id)
+    if (screenSaveError) {
+      console.error('Listing screen save failed:', contractor.slug, screenSaveError)
+    }
+
     await sendNotification({
-      subject: `[My HVAC Tech] New Contractor Registration: ${contractor.company_name}`,
+      subject: `[My HVAC Tech] Needs approval: ${contractor.company_name}`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: #171717; color: white; padding: 24px 32px; border-radius: 12px 12px 0 0;">
-            <h1 style="margin: 0; font-size: 20px; font-weight: 700;">New Contractor Registration</h1>
+            <h1 style="margin: 0; font-size: 20px; font-weight: 700;">New Listing — Needs Approval</h1>
             <p style="margin: 8px 0 0; color: #a3a3a3; font-size: 14px;">My HVAC Tech &middot; ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
           </div>
           <div style="border: 1px solid #e5e5e5; border-top: none; padding: 24px 32px; border-radius: 0 0 12px 12px;">
@@ -288,11 +313,12 @@ export async function POST(request: NextRequest) {
               ${body.website ? `<tr><td style="padding: 8px 0; color: #737373;">Website</td><td style="padding: 8px 0;">${body.website}</td></tr>` : ''}
               ${body.year_established ? `<tr><td style="padding: 8px 0; color: #737373;">Est.</td><td style="padding: 8px 0;">${body.year_established}</td></tr>` : ''}
               ${body.num_technicians ? `<tr><td style="padding: 8px 0; color: #737373;">Technicians</td><td style="padding: 8px 0;">${body.num_technicians}</td></tr>` : ''}
-              <tr><td style="padding: 8px 0; color: #737373;">Profile</td><td style="padding: 8px 0;"><a href="https://myhvac.tech/contractors/${contractor.slug}" style="color: #0284c7;">View Profile</a></td></tr>
+              <tr><td style="padding: 8px 0; color: #737373;">Trade check</td><td style="padding: 8px 0;">${SCREEN_LABEL[screen.verdict]} — ${screen.reason}</td></tr>
+              <tr><td style="padding: 8px 0; color: #737373;">Status</td><td style="padding: 8px 0;">Hidden until approved</td></tr>
             </table>
             ${body.description ? `<hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" /><p style="font-size: 13px; color: #737373; margin-bottom: 4px;">Description:</p><p style="font-size: 14px; color: #404040; line-height: 1.6;">${body.description.slice(0, 300)}${body.description.length > 300 ? '...' : ''}</p>` : ''}
             <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 16px 0;" />
-            <a href="https://myhvac.tech/admin/contractors" style="display: inline-block; background: #171717; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">View in Admin Panel</a>
+            <a href="https://myhvac.tech/admin/listings" style="display: inline-block; background: #171717; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">Review &amp; Approve</a>
           </div>
         </div>
       `,
@@ -311,7 +337,7 @@ export async function POST(request: NextRequest) {
         `Company: ${body.company_name?.trim() || '—'}`,
         `Location: ${body.city?.trim() || ''}, ${body.state?.trim() || ''} ${body.zip_code || ''}`.trim(),
         body.website ? `Website: ${body.website}` : null,
-        `Listing: https://myhvac.tech/contractors/${contractor.slug}`,
+        `Listing (hidden until approved): https://myhvac.tech/contractors/${contractor.slug}`,
       ].filter(Boolean).join('\n'),
     })
 
