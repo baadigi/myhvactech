@@ -3,10 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { withTrade } from '@/lib/trade-scope'
 import { sendNotification } from '@/lib/email'
 import { pushLeadToGHL } from '@/lib/ghl'
+import { isBlockedSender } from "@/lib/blocked-sender"
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    if (await isBlockedSender(body?.email)) {
+      return NextResponse.json({ success: true, lead_id: crypto.randomUUID() }, { status: 201 })
+    }
     const {
       contractor_id,
       name,

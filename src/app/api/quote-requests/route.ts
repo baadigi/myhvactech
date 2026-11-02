@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { withTrade, TRADE_KEY } from '@/lib/trade-scope'
 import { sendNotification } from '@/lib/email'
 import { pushLeadToGHL } from '@/lib/ghl'
+import { isBlockedSender } from "@/lib/blocked-sender"
 
 const titleCase = (t: string) => t.replace(/\b\w/g, (c) => c.toUpperCase())
 
@@ -81,6 +82,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'Invalid JSON body' },
       { status: 400 }
+    )
+  }
+
+  if (await isBlockedSender(body.requestor_email)) {
+    return NextResponse.json(
+      {
+        success: true,
+        quote_request_id: crypto.randomUUID(),
+        message: 'Quote request received. We are matching you with vetted contractors.',
+      },
+      { status: 201 }
     )
   }
 

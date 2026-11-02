@@ -2,11 +2,13 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendNotification } from '@/lib/email'
 import { pushLeadToGHL } from '@/lib/ghl'
+import { isBlockedSender } from "@/lib/blocked-sender"
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { name, email, company, reason, message } = body
+    if (await isBlockedSender(email)) return NextResponse.json({ success: true }, { status: 201 })
 
     if (!name?.trim() || !email?.trim() || !message?.trim()) {
       return NextResponse.json(
