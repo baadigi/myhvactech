@@ -240,7 +240,8 @@ Your writing must:
 - Include the city/metro in the first sentence
 - NEVER use these phrases: "look no further", "one-stop shop", "committed to excellence", "dedicated team", "state-of-the-art", "second to none", "unparalleled", "when it comes to", "whether you need X or Y"
 - NEVER start with "Looking for" or "When it comes to"
-- Every sentence must carry new information — no filler`
+- Every sentence must carry new information — no filler
+- TRADE CHECK (overrides the keyword and word-count rules): if the website content shows the company works in a different trade and nothing shows commercial HVAC work, describe what the company actually does in a few plain sentences. Do NOT call it a commercial HVAC contractor and do NOT attribute HVAC services, systems, certifications or technicians to it`
 
   const userPrompt = `Write a compelling business description for this commercial HVAC contractor.
 

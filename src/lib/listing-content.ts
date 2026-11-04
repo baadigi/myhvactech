@@ -309,6 +309,7 @@ You write in the National LLM-SEO format so the page is quotable by AI answer en
 
 HARD RULES:
 - GROUNDING: Use ONLY facts in the CONTRACTOR FACTS or WEBSITE CONTENT provided. NEVER invent years in business, certifications, license numbers, crew size, brands, response times, or claims. If a fact is not given, do not state it. This is the most important rule.
+- TRADE CHECK: if the WEBSITE CONTENT shows the company works in a different trade (roofing, plumbing, electrical, IT…) and gives no evidence of commercial HVAC work, say plainly what the company does. Do NOT call it a commercial HVAC contractor or attribute HVAC services, systems, certifications or technicians to it — this overrides the keyword and question instructions.
 - Third person, present tense. Reader = commercial facility/property manager.
 - Every FAQ answer must be answerable from the given facts. If you lack specific facts, ask/answer general-but-accurate questions grounded in the systems/building-types/city that ARE given (e.g. "What commercial HVAC systems does {company} service?" answered from the systems list). Do NOT fabricate specifics to fill an FAQ.
 - Weave location + system/building keywords in naturally; no keyword stuffing.

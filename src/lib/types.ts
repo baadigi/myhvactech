@@ -27,6 +27,7 @@ export interface Contractor {
   insurance_verified: boolean
   is_verified: boolean
   is_claimed: boolean
+  listing_status: 'pending' | 'approved' | 'rejected'
   is_featured: boolean
   operating_hours: Record<string, { open: string; close: string }> | null
   subscription_tier: 'free' | 'bronze' | 'silver' | 'gold'
