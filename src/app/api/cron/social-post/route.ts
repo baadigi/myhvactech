@@ -18,8 +18,6 @@ function validateCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET
   const auth = request.headers.get('authorization')
   if (secret && auth === `Bearer ${secret}`) return true
-  if (request.headers.get('x-vercel-cron')) return true
-  if ((request.headers.get('user-agent') || '').toLowerCase().includes('vercel-cron')) return true
   return false
 }
 

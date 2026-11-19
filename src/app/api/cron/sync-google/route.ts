@@ -9,14 +9,12 @@ import { syncContractorGoogle } from '@/lib/google-places'
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
-// Vercel cron sends no Authorization header unless CRON_SECRET is set, so also
-// accept its x-vercel-cron header / vercel-cron user-agent (same as scan-news).
+// Vercel Cron sends `Authorization: Bearer $CRON_SECRET` when CRON_SECRET is set.
+// Headers like x-vercel-cron and the user-agent are spoofable, so only the secret counts.
 function validateCron(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
   const authHeader = request.headers.get('authorization')
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true
-  if (request.headers.get('x-vercel-cron')) return true
-  if ((request.headers.get('user-agent') || '').toLowerCase().includes('vercel-cron')) return true
   return false
 }
 
