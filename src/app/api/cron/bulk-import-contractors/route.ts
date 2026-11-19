@@ -6,7 +6,7 @@ import { TRADE_KEY, withTrade } from '@/lib/trade-scope'
 // POST { rows: [{company_name, city, state, phone, website, street_address,
 //   google_place_id, avg_rating, review_count}] } — dedups vs existing
 // contractors (place_id -> phone -> slug) and inserts commercial_verified=true.
-// Auth: vercel-cron UA or Bearer CRON_SECRET (same as the other crons).
+// Auth: Bearer CRON_SECRET only (same as the other crons).
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
@@ -14,8 +14,6 @@ function validateCron(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET
   const auth = request.headers.get('authorization')
   if (secret && auth === `Bearer ${secret}`) return true
-  if (request.headers.get('x-vercel-cron')) return true
-  if ((request.headers.get('user-agent') || '').toLowerCase().includes('vercel-cron')) return true
   return false
 }
 
